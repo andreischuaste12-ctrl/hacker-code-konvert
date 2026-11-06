@@ -30,7 +30,7 @@ The CLI requires `--authorized`. This records the operator's confirmation; it do
 - Linux for Semgrep execution
 - Bubblewrap with usable user and network namespaces
 - Semgrep 1.184.0 for the optional Python SAST profile
-- A 2 GiB default address-space limit for the isolated Semgrep process
+- A 4 GiB default address-space limit for the isolated Semgrep process
 
 Inventory and JSON validation remain available without Semgrep. The Semgrep run fails closed when Bubblewrap isolation is unavailable.
 
