@@ -163,7 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scan.add_argument("--scanner", choices=("inventory", "semgrep"), default="inventory")
     scan.add_argument("--timeout", type=_positive_integer, default=60)
-    scan.add_argument("--memory-mb", type=_positive_integer, default=1024)
+    scan.add_argument("--memory-mb", type=_positive_integer, default=2048)
     scan.add_argument("--max-output-bytes", type=_positive_integer, default=5_000_000)
     scan.add_argument("--max-file-bytes", type=_positive_integer, default=1_000_000)
     scan.add_argument("--max-files", type=_positive_integer, default=10_000)
