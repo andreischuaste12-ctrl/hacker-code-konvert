@@ -32,6 +32,22 @@ The initial implementation is proposed to focus on:
 
 This MVP is a proposal, not a description of existing functionality. Active security testing and automated outreach are outside its proposed initial scope.
 
+The first scanner integrations are planned to be:
+
+- **Semgrep** for static application security testing.
+- **OSV-Scanner** for dependency vulnerability analysis.
+- **Gitleaks** for secret detection, with all sensitive values redacted.
+
+Scanner output will be treated as evidence for review, not as a confirmed vulnerability by itself.
+
+## Documentation
+
+- [Operating skill](SKILL.md): authorization, analysis, triage, and reporting rules.
+- [Architecture](docs/ARCHITECTURE.md): system boundaries, components, and analysis flow.
+- [Finding schema](docs/FINDING_SCHEMA.md): normalized contract for security findings.
+- [Roadmap](docs/ROADMAP.md): implementation phases and acceptance criteria.
+- [Security policy](SECURITY.md): how to report vulnerabilities in this project.
+
 ## Ethical Commitment
 
 All activities must respect ethical hacking principles, project security policies, and the limits of the authorization granted.
