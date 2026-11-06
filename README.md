@@ -75,4 +75,6 @@ Make software development safer, more accessible, and more trustworthy by using 
 
 ## License
 
+Copyright 2026 Andrei Schuaste.
+
 Licensed under the [Apache License 2.0](LICENSE).
