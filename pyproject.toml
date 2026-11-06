@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools==84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hacker-code-konvert"
+version = "0.1.0"
+description = "Local-first defensive source-code security analysis orchestrator"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [
+  {name = "Andrei Schuaste"}
+]
+dependencies = []
+
+[project.optional-dependencies]
+semgrep = [
+  "semgrep==1.184.0"
+]
+dev = [
+  "pytest==8.4.2",
+  "ruff==0.17.4"
+]
+
+[project.scripts]
+hck = "hacker_code_konvert.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+hacker_code_konvert = [
+  "data/*.json",
+  "data/*.yml"
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "integration: requires optional scanner binaries and Linux sandboxing"
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]

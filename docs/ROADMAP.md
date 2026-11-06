@@ -17,6 +17,8 @@ Exit criteria: documentation is internally consistent and every future component
 
 ## Phase 1: Repository Inventory and CLI Skeleton
 
+Status: implemented in version 0.1.0.
+
 - Select the implementation language from a small scanner-invocation prototype.
 - Build a local CLI with explicit repository root and output directory arguments.
 - Detect supported manifests and lockfiles without executing project code.
@@ -26,6 +28,8 @@ Exit criteria: the CLI inventories a fixture repository deterministically and ne
 
 ## Phase 2: Scanner Adapters
 
+Status: Semgrep Python profile implemented; OSV-Scanner and Gitleaks pending.
+
 - Integrate Semgrep, OSV-Scanner, and Gitleaks.
 - Pin or record tool versions and rulesets.
 - Preserve exit status and distinguish findings from tool failures.
@@ -34,6 +38,8 @@ Exit criteria: the CLI inventories a fixture repository deterministically and ne
 Exit criteria: fixture repositories produce reproducible raw results and a failed scanner makes the overall run incomplete.
 
 ## Phase 3: Normalization and Triage
+
+Status: executable finding contract and scanner-to-candidate normalization implemented; contextual human triage pending.
 
 - Normalize all scanner results to the finding schema.
 - Deduplicate findings without losing source provenance.
@@ -53,6 +59,8 @@ Exit criteria: every normalized finding traces back to evidence, and candidates 
 Exit criteria: a differential report identifies its complete revision range, reviewed changes, coverage limits, and evidence for every finding.
 
 ## Phase 5: Reports
+
+Status: Markdown and normalized JSON implemented; SARIF pending.
 
 - Generate Markdown reports for human review.
 - Generate valid SARIF for compatible platforms.

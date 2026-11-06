@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install operating-system sandbox
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
+
+      - name: Install project and pinned development tools
+        run: |
+          python -m pip install --disable-pip-version-check --no-input -r requirements-dev.txt
+          python -m pip install --disable-pip-version-check --no-input --no-deps -e .
+
+      - name: Build distributable package
+        run: python -m pip wheel --disable-pip-version-check --no-deps --wheel-dir /tmp/hck-wheel .
+
+      - name: Compile Python sources
+        run: python -m compileall -q src scripts tests
+
+      - name: Lint
+        run: ruff check src scripts tests
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Validate bundled JSON schemas
+        run: |
+          python -m json.tool src/hacker_code_konvert/data/finding.schema.json >/dev/null
+          python -m json.tool src/hacker_code_konvert/data/run.schema.json >/dev/null
+
+      - name: Run the isolated Semgrep fixture
+        run: hck scan tests/fixtures/python --output /tmp/hck-fixture-report --authorized --scanner semgrep
+
+      - name: Measure fixture quality
+        run: >-
+          python scripts/evaluate_fixture_quality.py
+          --findings /tmp/hck-fixture-report/findings.json
+          --expected tests/fixtures/python/expected.json
+          --output /tmp/hck-fixture-report/quality.json
+
+      - name: Upload redacted quality artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fixture-quality
+          path: |
+            /tmp/hck-fixture-report/run.json
+            /tmp/hck-fixture-report/findings.json
+            /tmp/hck-fixture-report/report.md
+            /tmp/hck-fixture-report/quality.json
+          if-no-files-found: warn
+          retention-days: 14

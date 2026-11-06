@@ -10,7 +10,9 @@ The planned approach combines code analysis, security auditing, and automated to
 
 ## Project Status
 
-The project is in its initial planning stage. This repository currently contains documentation only. The capabilities below describe the intended scope and have not yet been implemented.
+Version 0.1.0 provides a local end-to-end MVP for repository inventory, optional isolated Semgrep analysis of Python files, executable finding validation, and Markdown or JSON reporting. Scanner findings remain candidates until independently reviewed.
+
+The rule pack is intentionally small. A completed run means that the requested checks finished, not that the analyzed repository is secure.
 
 ## Planned Capabilities
 
@@ -21,22 +23,22 @@ The project is in its initial planning stage. This repository currently contains
 - **Improvement suggestions:** Provide technical recommendations to remediate vulnerabilities and strengthen project security.
 - **Developer collaboration:** Support responsible communication of validated vulnerabilities so maintainers can address them.
 
-## Proposed MVP
+## MVP
 
-The initial implementation is proposed to focus on:
+The initial implementation focuses on:
 
-1. Static analysis of a selected repository's source code and dependencies.
+1. Static inventory of a selected repository and Semgrep analysis of Python source files.
 2. Classification of findings by severity, with evidence and relevant context.
 3. Security reports containing actionable remediation recommendations.
 4. Human review before any findings are communicated to maintainers.
 
-This MVP is a proposal, not a description of existing functionality. Active security testing and automated outreach are outside its proposed initial scope.
+Active security testing, dependency vulnerability analysis, automated outreach, remote AI processing, and autonomous remediation remain outside the implemented scope.
 
-The first scanner integrations are planned to be:
+Scanner status:
 
-- **Semgrep** for static application security testing.
-- **OSV-Scanner** for dependency vulnerability analysis.
-- **Gitleaks** for secret detection, with all sensitive values redacted.
+- **Semgrep 1.184.0:** implemented for Python through bundled local rules and networkless Bubblewrap isolation.
+- **OSV-Scanner:** planned for dependency vulnerability analysis.
+- **Gitleaks:** planned for secret detection with mandatory redaction and suppression-resistant staging.
 
 Scanner output will be treated as evidence for review, not as a confirmed vulnerability by itself.
 
@@ -44,6 +46,10 @@ Scanner output will be treated as evidence for review, not as a confirmed vulner
 
 - [Operating skill](SKILL.md): authorization, analysis, triage, and reporting rules.
 - [Architecture](docs/ARCHITECTURE.md): system boundaries, components, and analysis flow.
+- [MVP specification](docs/PRODUCT_SPEC.md): implemented inputs, outputs, limits, and unsupported cases.
+- [Scanner isolation](docs/SCANNER_ISOLATION.md): staging, sandbox, network, and resource controls.
+- [Privacy](docs/PRIVACY.md): local data flow, retention, and external-service policy.
+- [Quality and measurement](docs/QUALITY.md): fixture metrics, thresholds, and interpretation limits.
 - [Finding schema](docs/FINDING_SCHEMA.md): normalized contract for security findings.
 - [Verification gates](docs/VERIFICATION_GATES.md): evidence requirements and verdict rules.
 - [Technical references](docs/REFERENCES.md): primary sources, standards, and licensing notes.
@@ -51,6 +57,48 @@ Scanner output will be treated as evidence for review, not as a confirmed vulner
 - [E-commerce profile](docs/ECOMMERCE_PROFILE.md): authorized payment and storefront review guidance.
 - [Roadmap](docs/ROADMAP.md): implementation phases and acceptance criteria.
 - [Security policy](SECURITY.md): how to report vulnerabilities in this project.
+
+## Quick Start
+
+The Semgrep profile requires Linux, Python 3.12 or newer, and Bubblewrap with namespace support.
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e '.[semgrep]'
+```
+
+Run a local inventory without an external scanner:
+
+```bash
+hck scan /path/to/authorized/repository \
+  --output /tmp/hck-report \
+  --authorized
+```
+
+Run the isolated Python Semgrep profile:
+
+```bash
+hck scan /path/to/authorized/repository \
+  --output /tmp/hck-report \
+  --authorized \
+  --scanner semgrep
+```
+
+The output directory must remain outside the analyzed repository. It receives `run.json`, `findings.json`, and `report.md`, with private permissions. See the [MVP specification](docs/PRODUCT_SPEC.md) for exit statuses and limitations.
+
+## Development
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pip install --no-deps -e .
+ruff check src scripts tests
+pytest -q
+```
+
+The lock file records the complete Python 3.12 development dependency graph used by CI. CI repeats the
+package build, lint, unit tests, isolated scanner fixture, schema checks, and fixture quality measurement
+on every pull request and push to `main`.
 
 ## Community
 

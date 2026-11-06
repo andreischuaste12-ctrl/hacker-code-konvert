@@ -61,11 +61,13 @@ Use the smallest relevant set of tools:
 
 Record tool versions, rule identifiers, commands, exit outcomes, and relevant limitations. Tool failure must not be reported as a clean scan.
 
+For the implemented MVP, follow `docs/SCANNER_ISOLATION.md`: use a controlled staged copy, bundled rules, networkless Bubblewrap isolation, explicit limits, and fail-closed behavior. Do not load scanner configuration or ignore files from the target repository.
+
 ### 4. Normalization and triage
 
 Convert candidate results to the finding contract in `docs/FINDING_SCHEMA.md`. For each candidate, inspect the relevant code and decide whether the unsafe source can reach the sensitive sink, whether the code is reachable, and whether existing controls mitigate the risk.
 
-Apply every relevant gate in `docs/VERIFICATION_GATES.md`. Classify each result as `candidate`, `validated`, `false_positive`, or `accepted_risk`. Missing evidence leaves a result as a candidate; it does not make the result a false positive. Only a human-reviewed `validated` result may be presented as a confirmed vulnerability.
+Apply Gates 1 through 8 in `docs/VERIFICATION_GATES.md`. Classify unresolved results as `candidate` and disproven results as `false_positive`. Missing evidence leaves a result as a candidate; it does not make the result a false positive.
 
 ### 5. Risk assessment
 
@@ -75,7 +77,11 @@ Assign severity and confidence independently. Prefer CVSS v4.0 when the required
 
 Recommend the smallest safe change that matches the project's conventions. Include verification steps. Produce a patch only when requested, and do not claim the issue is fixed until the relevant check has passed.
 
-### 7. Reporting and disclosure
+### 7. Human review
+
+After technical gates, risk assessment, and remediation are complete, apply Gate 9. Only an independently reviewed result with every applicable gate passed may move to `validated`.
+
+### 8. Reporting and disclosure
 
 Generate a human-readable report and, when supported, SARIF. Reports must distinguish validated findings, unresolved candidates, false positives, scanner errors, skipped checks, and scope limitations.
 
@@ -84,6 +90,8 @@ Human-readable output follows `docs/REPORT_TEMPLATE.md` so coverage, tool failur
 Sensitive findings remain private. Follow the target repository's `SECURITY.md` or private reporting channel. External communication always requires explicit human approval.
 
 Track coordinated disclosure separately from technical validation using the lifecycle defined in `docs/FINDING_SCHEMA.md`. Do not impose a public-disclosure deadline without considering the target policy, severity, downstream exposure, and maintainer capacity.
+
+The implemented MVP performs no AI processing, telemetry, external upload, disclosure, or maintainer contact. Follow `docs/PRIVACY.md` for data handling.
 
 ## Finding Quality Gate
 

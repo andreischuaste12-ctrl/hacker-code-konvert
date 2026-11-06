@@ -8,6 +8,8 @@ Use GitHub Private Vulnerability Reporting when it is enabled for this repositor
 
 For this repository, the preferred channel is [GitHub Private Vulnerability Reporting](https://github.com/andreischuaste12-ctrl/hacker-code-konvert/security/advisories/new).
 
+If that channel is unavailable, open a public issue containing only a request for a private security contact. Do not include the affected component, vulnerability class, evidence, reproduction steps, or impact in that issue.
+
 Include only the information needed to reproduce and assess the issue:
 
 - affected component and version or commit;
@@ -32,6 +34,14 @@ Reports are handled through a coordinated process: private report, acknowledgeme
 
 Technical validation and disclosure status are tracked separately. A validated finding is not automatically approved for publication.
 
+Do not send automated or bulk vulnerability reports. Consolidate related findings, remove duplicates, verify evidence, and submit each report through the target project's approved private channel. Record an expected coordination timeline with the maintainer instead of imposing an undisclosed universal deadline.
+
 ## Project Scope
 
-Until executable components are published, the security-sensitive surface of this repository is limited to its documentation and future contribution workflow. Supported versions and response targets will be documented when the first release is available.
+Version 0.1.x is the currently supported development line. Its security-sensitive surface includes the
+CLI, repository staging, Bubblewrap isolation, bundled rules, output normalization, redaction, schemas,
+and report generation. Include the affected version or commit in a private report.
+
+Findings about a third-party repository analyzed by Hacker Code Konvert must be reported through that
+project's security policy. This repository's policy does not grant permission to test or disclose issues
+in those projects.

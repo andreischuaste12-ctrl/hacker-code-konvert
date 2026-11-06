@@ -1,0 +1,29 @@
+rules:
+  - id: hck.python.dangerous-eval
+    languages:
+      - python
+    severity: ERROR
+    message: Dynamic evaluation can execute attacker-controlled Python code.
+    metadata:
+      cwe:
+        - CWE-95
+      owasp:
+        - A03:2021-Injection
+      confidence: MEDIUM
+    pattern: eval(...)
+
+  - id: hck.python.unsafe-yaml-load
+    languages:
+      - python
+    severity: WARNING
+    message: yaml.load without an explicit safe loader can construct unsafe Python objects.
+    metadata:
+      cwe:
+        - CWE-502
+      owasp:
+        - A08:2021-Software and Data Integrity Failures
+      confidence: MEDIUM
+    patterns:
+      - pattern: yaml.load(...)
+      - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.load(..., Loader=SafeLoader, ...)

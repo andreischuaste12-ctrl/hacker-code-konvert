@@ -21,13 +21,24 @@ Offensive payloads, unauthorized testing workflows, real credentials, personal d
 
 ## Development Workflow
 
-The project is currently in its documentation and contract-design phase. Until the first implementation stack is selected:
+The MVP uses Python 3.12, pytest, Ruff, Semgrep 1.184.0, and Bubblewrap on Linux.
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m pip install --no-deps -e .
+ruff check src scripts tests
+pytest -q
+```
+
+For each contribution:
 
 1. Create a focused branch from `main`.
 2. Keep each pull request limited to one coherent change.
 3. Explain the problem, security implications, and validation performed.
 4. Update related documentation when changing a contract or workflow.
-5. Verify Markdown links, examples, and structured data before submitting.
+5. Verify Markdown links, examples, structured data, lint, and tests before submitting.
 
 Do not modify an analyzed third-party repository as part of a fixture. Use synthetic examples with no live secrets or sensitive data.
 
@@ -42,6 +53,8 @@ Changes that introduce or modify analysis behavior must:
 - redact secrets before logs, persistence, and reports;
 - preserve scanner failures and coverage limitations;
 - require human review before disclosure or patch publication.
+- preserve fail-closed behavior when scanner isolation is unavailable.
+- add synthetic positive and negative fixtures when changing detection rules.
 
 Broad exclusions such as “ignore every denial-of-service finding” are not accepted. Filtering must depend on the selected analysis profile, threat model, and documented evidence.
 

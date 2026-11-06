@@ -13,12 +13,14 @@ Every scanner result starts as a candidate. This normalized contract connects sc
 | `analysis_profile` | `repository`, `differential`, `dependency`, `ecommerce`, or `active` |
 | `severity` | `informational`, `low`, `medium`, `high`, or `critical` |
 | `confidence` | `low`, `medium`, or `high` |
+| `confidence_rationale` | Evidence-based explanation for the confidence value |
 | `category` | Finding family such as `sast`, `dependency`, `secret`, or `configuration` |
 | `location` | Repository-relative path and line or exact dependency coordinates |
 | `threat_model` | Attacker, required access, affected boundary, and triggering conditions |
 | `evidence` | Redacted observed facts supporting the result |
 | `validation` | Outcome and evidence for each applicable verification gate |
 | `impact` | Realistic consequence under stated conditions |
+| `reproduction` | Safe authorized steps performed, or the reason they were not performed |
 | `remediation` | Actionable correction and verification guidance |
 | `sources` | Scanner, rule, advisory, standard, or analyst references |
 | `review` | Human-review state, reviewer, timestamp, and rationale |
@@ -36,6 +38,13 @@ Every scanner result starts as a candidate. This normalized contract connects sc
 - differential baseline, head revision, changed lines, and blast radius;
 - patch reference and post-remediation verification;
 - SARIF rule and result identifiers.
+
+## Optional Structured Fields
+
+| Field | Meaning |
+| --- | --- |
+| `taxonomy` | CWE, OWASP, or other applicable classification |
+| `risk` | CVSS, EPSS, KEV, SSVC, assumptions, and observation dates |
 
 ## Disclosure Lifecycle
 
@@ -63,6 +72,7 @@ External communication requires explicit human approval. The lifecycle must not 
   "analysis_profile": "repository",
   "severity": "high",
   "confidence": "medium",
+  "confidence_rationale": "The rule matched, but reachability and exploitability are unresolved.",
   "category": "sast",
   "location": {
     "path": "src/example.ts",
@@ -102,6 +112,11 @@ External communication requires explicit human approval. The lifecycle must not 
     "human_review": "pending"
   },
   "impact": "An attacker may alter the query if the route is reachable and no upstream validation applies.",
+  "reproduction": {
+    "performed": false,
+    "reason": "The static analysis did not execute target code.",
+    "steps": []
+  },
   "risk": {
     "cvss_version": "4.0",
     "cvss_vector": null,

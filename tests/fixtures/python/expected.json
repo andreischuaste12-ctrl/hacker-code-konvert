@@ -1,0 +1,8 @@
+{
+  "expected": [
+    {
+      "rule_id": "hck.python.dangerous-eval",
+      "path": "vulnerable.py"
+    }
+  ]
+}

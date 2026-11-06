@@ -49,6 +49,7 @@ Use this structure for each finding:
 - **Status:** validated
 - **Severity:** informational, low, medium, high, or critical
 - **Confidence:** low, medium, or high
+- **Confidence rationale:** evidence supporting the confidence value
 - **Location:** repository-relative file and lines, or dependency coordinates
 - **CWE / OWASP:** applicable taxonomy
 - **CVSS v4.0:** vector, score source, assumptions, and metric justification
@@ -56,6 +57,7 @@ Use this structure for each finding:
 - **Evidence:** redacted observed facts and source-to-sink or version trace
 - **Verification gates:** outcome of every applicable gate
 - **Impact:** realistic consequence under stated conditions
+- **Safe reproduction:** authorized steps performed, or why execution was not performed
 - **Remediation:** smallest practical fix
 - **Verification:** checks required to confirm the fix
 - **References:** primary sources and originating scanner rule

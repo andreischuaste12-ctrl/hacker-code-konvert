@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/andreischuaste12-ctrl/hacker-code-konvert/schemas/run.schema.json",
+  "title": "Hacker Code Konvert Run",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "started_at",
+    "duration_ms",
+    "analysis_profile",
+    "scope",
+    "controls",
+    "limits",
+    "inventory",
+    "scanner",
+    "limitations",
+    "complete"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "duration_ms": {"type": "integer", "minimum": 0},
+    "revision": {"type": ["string", "null"]},
+    "analysis_profile": {"const": "repository"},
+    "scope": {"type": "object"},
+    "controls": {"type": "object"},
+    "limits": {"type": "object"},
+    "inventory": {"type": "object"},
+    "scanner": {"type": "object"},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "complete": {"type": "boolean"}
+  }
+}

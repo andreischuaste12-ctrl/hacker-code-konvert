@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/andreischuaste12-ctrl/hacker-code-konvert/schemas/finding.schema.json",
+  "title": "Hacker Code Konvert Finding",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "fingerprint",
+    "title",
+    "status",
+    "analysis_profile",
+    "severity",
+    "confidence",
+    "confidence_rationale",
+    "category",
+    "location",
+    "threat_model",
+    "evidence",
+    "validation",
+    "impact",
+    "reproduction",
+    "remediation",
+    "sources",
+    "review",
+    "disclosure"
+  ],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "title": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": ["candidate", "validated", "false_positive", "accepted_risk"]
+    },
+    "analysis_profile": {
+      "enum": ["repository", "differential", "dependency", "ecommerce", "active"]
+    },
+    "severity": {
+      "enum": ["informational", "low", "medium", "high", "critical"]
+    },
+    "confidence": {"enum": ["low", "medium", "high"]},
+    "confidence_rationale": {"type": "string", "minLength": 1},
+    "category": {"type": "string", "minLength": 1},
+    "location": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
+        "start_line": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1}
+      }
+    },
+    "threat_model": {"type": "object"},
+    "evidence": {"type": "object"},
+    "validation": {
+      "type": "object",
+      "required": [
+        "authorization_scope",
+        "coherent_claim",
+        "code_applicability",
+        "attacker_control_reachability",
+        "vulnerability_mechanism",
+        "realistic_impact",
+        "environmental_controls",
+        "safe_evidence",
+        "human_review"
+      ],
+      "additionalProperties": {
+        "enum": ["pass", "fail", "unresolved", "pending", "not_applicable"]
+      }
+    },
+    "impact": {"type": "string", "minLength": 1},
+    "reproduction": {
+      "type": "object",
+      "required": ["performed", "reason", "steps"],
+      "properties": {
+        "performed": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1},
+        "steps": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "remediation": {"type": "object"},
+    "sources": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "review": {"type": "object"},
+    "disclosure": {"type": "object"},
+    "taxonomy": {"type": "object"},
+    "risk": {"type": "object"}
+  }
+}
