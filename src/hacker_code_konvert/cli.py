@@ -130,6 +130,9 @@ def _scan(args: argparse.Namespace) -> int:
     write_artifacts(output, run, scanner.findings)
     print(f"report: {output / 'report.md'}")
     print(f"status: {'complete' if run['complete'] else 'incomplete'}")
+    if not run["complete"]:
+        for error in scanner.errors:
+            print(f"scanner error: {error}", file=sys.stderr)
     return 0 if run["complete"] else 3
 
 

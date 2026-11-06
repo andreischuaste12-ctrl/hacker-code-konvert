@@ -199,6 +199,8 @@ def run_semgrep(
             "--disable-version-check",
             "--no-git-ignore",
             "--disable-nosem",
+            "--jobs",
+            "1",
             "--max-target-bytes",
             str(max_file_bytes),
             "/target",

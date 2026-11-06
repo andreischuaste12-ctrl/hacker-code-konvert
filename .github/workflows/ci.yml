@@ -58,7 +58,11 @@ jobs:
           python -m json.tool src/hacker_code_konvert/data/run.schema.json >/dev/null
 
       - name: Run the isolated Semgrep fixture
-        run: hck scan tests/fixtures/python --output /tmp/hck-fixture-report --authorized --scanner semgrep
+        run: |
+          if ! hck scan tests/fixtures/python --output /tmp/hck-fixture-report --authorized --scanner semgrep; then
+            python -c "import json; from pathlib import Path; p=json.loads(Path('/tmp/hck-fixture-report/run.json').read_text()); m='; '.join(p['scanner']['errors']).replace('%', '%25').replace(chr(13), '%0D').replace(chr(10), '%0A'); print(f'::error title=Isolated scanner failed::{m}')"
+            exit 1
+          fi
 
       - name: Measure fixture quality
         run: >-

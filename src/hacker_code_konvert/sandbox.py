@@ -79,7 +79,7 @@ def build_bubblewrap_command(
         "/dev",
         "--tmpfs",
         "/tmp",
-        "--dir",
+        "--tmpfs",
         "/home",
         "--dir",
         "/rules",
@@ -93,7 +93,7 @@ def build_bubblewrap_command(
         "/target",
     ]
 
-    for system_path in ("/usr", "/bin", "/lib", "/lib64", "/opt"):
+    for system_path in ("/usr", "/bin", "/lib", "/lib64", "/opt", "/etc"):
         path = Path(system_path)
         if path.exists():
             wrapped.extend(["--ro-bind", system_path, system_path])
