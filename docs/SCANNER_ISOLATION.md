@@ -30,6 +30,11 @@ Semgrep runs through Bubblewrap with:
 
 If Bubblewrap or the required namespaces are unavailable, the scanner fails closed. There is no automatic unsandboxed fallback.
 
+The GitHub Actions job runs on a dedicated ephemeral Ubuntu runner. It explicitly enables unprivileged
+user namespaces when the runner exposes the relevant kernel controls, then exercises the complete
+Bubblewrap path. This runner configuration is limited to CI and does not weaken the CLI's fail-closed
+behavior on an operator's machine.
+
 ## Suppression Resistance
 
 The adapter supplies bundled rules, stages no `.semgrepignore`, disables Git ignore handling, and passes `--disable-nosem`. Tests include both a target `.semgrepignore` and an inline `nosemgrep` comment and require the synthetic candidate to remain visible.
