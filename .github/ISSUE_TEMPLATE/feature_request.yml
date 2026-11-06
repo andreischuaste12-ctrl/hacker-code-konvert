@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose a defensive analysis capability or project improvement
+title: "[Feature]: "
+labels: []
+assignees: []
+body:
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and the roadmap for this proposal.
+          required: true
+        - label: The proposal is defensive and respects the project's authorization boundaries.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user or security-analysis problem to solve.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Explain the behavior, inputs, outputs, and evidence model.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Repository inventory
+        - SAST
+        - Dependency analysis
+        - Secret detection
+        - Triage and verification
+        - Risk classification
+        - Reporting and SARIF
+        - Responsible disclosure
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: Primary references
+      description: Link official standards, tool documentation, or peer-reviewed material when available.
+    validations:
+      required: false
+  - type: textarea
+    id: risks
+    attributes:
+      label: Safety and compatibility considerations
+      description: Describe false-positive, privacy, licensing, or authorization risks.
+    validations:
+      required: true

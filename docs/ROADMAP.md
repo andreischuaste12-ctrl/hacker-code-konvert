@@ -4,12 +4,14 @@ The roadmap favors a narrow, verifiable local workflow before adding hosted serv
 
 ## Phase 0: Operating Contracts
 
-Status: in progress.
+Status: complete for the initial contract set.
 
 - Define authorization and ethical boundaries.
 - Define the normalized finding schema.
 - Define architecture and scanner responsibilities.
 - Establish the project's own vulnerability reporting policy.
+- Record primary references, licensing constraints, and formal verification gates.
+- Establish contribution, conduct, issue, pull request, and licensing files.
 
 Exit criteria: documentation is internally consistent and every future component has a clear input and output boundary.
 
@@ -37,10 +39,20 @@ Exit criteria: fixture repositories produce reproducible raw results and a faile
 - Deduplicate findings without losing source provenance.
 - Add contextual checks for reachability, version applicability, and existing mitigations.
 - Record analyst confidence and unresolved assumptions.
+- Apply the formal verification gates and preserve inconclusive candidates.
 
 Exit criteria: every normalized finding traces back to evidence, and candidates cannot silently become validated findings.
 
-## Phase 4: Reports
+## Phase 4: Differential Review
+
+- Add an explicit baseline and head revision mode.
+- Map security-relevant changes, affected callers, and blast radius.
+- Inspect removed validation and authorization logic with Git history.
+- Report related test coverage and untested security paths.
+
+Exit criteria: a differential report identifies its complete revision range, reviewed changes, coverage limits, and evidence for every finding.
+
+## Phase 5: Reports
 
 - Generate Markdown reports for human review.
 - Generate valid SARIF for compatible platforms.
@@ -48,7 +60,7 @@ Exit criteria: every normalized finding traces back to evidence, and candidates 
 
 Exit criteria: report fixtures pass schema validation and never include raw secrets or absolute local paths.
 
-## Phase 5: Remediation Assistance
+## Phase 6: Remediation Assistance
 
 - Generate minimal, reviewable remediation proposals.
 - Add project-specific verification commands.
@@ -63,4 +75,5 @@ Exit criteria: the system distinguishes a proposed fix from a verified fix and p
 - OpenSSF Scorecard and supply-chain analysis.
 - EPSS, CISA KEV, and SSVC-based prioritization.
 - Authorized dynamic testing as a separate operating mode.
+- E-commerce profile implementation after generic repository, dependency, and reporting contracts are stable.
 - Hosted execution only after isolation, tenancy, retention, and privacy requirements are designed.

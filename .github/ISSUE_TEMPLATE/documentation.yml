@@ -1,0 +1,27 @@
+name: Documentation improvement
+description: Report unclear, incomplete, or inconsistent documentation
+title: "[Docs]: "
+labels: []
+assignees: []
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Document location
+      description: Provide the file path, section, or URL.
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: Problem
+      description: Explain what is unclear, incorrect, or missing.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Describe the desired wording or structure.
+    validations:
+      required: false

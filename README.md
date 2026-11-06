@@ -45,8 +45,19 @@ Scanner output will be treated as evidence for review, not as a confirmed vulner
 - [Operating skill](SKILL.md): authorization, analysis, triage, and reporting rules.
 - [Architecture](docs/ARCHITECTURE.md): system boundaries, components, and analysis flow.
 - [Finding schema](docs/FINDING_SCHEMA.md): normalized contract for security findings.
+- [Verification gates](docs/VERIFICATION_GATES.md): evidence requirements and verdict rules.
+- [Technical references](docs/REFERENCES.md): primary sources, standards, and licensing notes.
+- [Report template](docs/REPORT_TEMPLATE.md): required sections for reviewable security reports.
+- [E-commerce profile](docs/ECOMMERCE_PROFILE.md): authorized payment and storefront review guidance.
 - [Roadmap](docs/ROADMAP.md): implementation phases and acceptance criteria.
 - [Security policy](SECURITY.md): how to report vulnerabilities in this project.
+
+## Community
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a change.
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md) in all project spaces.
+- Report suspected vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+- Use the provided issue forms and pull request template so scope, validation, and security considerations remain reviewable.
 
 ## Ethical Commitment
 
@@ -61,3 +72,7 @@ All activities must respect ethical hacking principles, project security policie
 ## Our Mission
 
 Make software development safer, more accessible, and more trustworthy by using cybersecurity knowledge to turn vulnerabilities into opportunities for improvement.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).

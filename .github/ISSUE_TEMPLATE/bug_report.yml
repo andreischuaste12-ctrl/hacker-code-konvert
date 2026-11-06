@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible defect that does not expose a security vulnerability
+title: "[Bug]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a defect. Do not include vulnerabilities, credentials, personal data, or sensitive scanner output here. Use the private security-reporting channel described in SECURITY.md for security issues.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues for this defect.
+          required: true
+        - label: This report does not contain a security vulnerability or sensitive information.
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Explain what happened and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest safe, reproducible example.
+      placeholder: |
+        1. Run ...
+        2. Configure ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include operating system, relevant tool versions, and project commit.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted output
+      description: Add relevant logs after removing secrets, tokens, personal data, and absolute local paths.
+      render: shell
+    validations:
+      required: false

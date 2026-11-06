@@ -6,6 +6,8 @@ Please report suspected vulnerabilities privately. Do not open a public issue co
 
 Use GitHub Private Vulnerability Reporting when it is enabled for this repository. If that channel is unavailable, contact the repository owner privately through a verified channel listed on the owner's GitHub profile.
 
+For this repository, the preferred channel is [GitHub Private Vulnerability Reporting](https://github.com/andreischuaste12-ctrl/hacker-code-konvert/security/advisories/new).
+
 Include only the information needed to reproduce and assess the issue:
 
 - affected component and version or commit;
@@ -23,6 +25,12 @@ Include only the information needed to reproduce and assess the issue:
 - Allow maintainers reasonable time to investigate and remediate before disclosure.
 
 This policy does not grant authorization to test third-party systems, deployed applications, or repositories analyzed with Hacker Code Konvert.
+
+## Coordinated Disclosure
+
+Reports are handled through a coordinated process: private report, acknowledgement, triage, remediation, validation, and public disclosure when appropriate. Timing depends on severity, downstream exposure, available mitigations, the reporter's expectations, and maintainer capacity. Public disclosure must be coordinated and must not expose users before a practical mitigation is available.
+
+Technical validation and disclosure status are tracked separately. A validated finding is not automatically approved for publication.
 
 ## Project Scope
 
