@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import stat
 from pathlib import Path
 
@@ -44,6 +43,13 @@ MANIFEST_NAMES = {
 
 SCANNABLE_SUFFIXES = {".py"}
 LFS_HEADER = b"version https://git-lfs.github.com/spec/v1"
+# Files the CLI itself writes; an output directory may already contain only these.
+ARTIFACT_NAMES = frozenset({"run.json", "findings.json", "report.md"})
+# Semgrep falls back to built-in ignore patterns (such as tests/ and test/) when the scanned
+# root has no .semgrepignore. The staged tree always carries this tool-owned, empty file so
+# repository content can never be skipped silently and no built-in default applies.
+SEMGREP_IGNORE_NAME = ".semgrepignore"
+COPY_CHUNK_BYTES = 64 * 1024
 
 
 class ScopeError(ValueError):
@@ -61,6 +67,15 @@ def validate_output_path(root: Path, output: str | Path) -> Path:
     destination = Path(output).expanduser().resolve(strict=False)
     if destination == root or destination.is_relative_to(root):
         raise ScopeError("output directory must be outside the analyzed repository")
+    if destination.exists():
+        if not destination.is_dir():
+            raise ScopeError("output path exists and is not a directory")
+        unrelated = sorted(entry.name for entry in destination.iterdir() if entry.name not in ARTIFACT_NAMES)
+        if unrelated:
+            raise ScopeError(
+                "output directory must be new, empty, or contain only previous Hacker Code Konvert "
+                "artifacts (run.json, findings.json, report.md)"
+            )
     return destination
 
 
@@ -68,14 +83,20 @@ def _relative(root: Path, path: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
-def _is_lfs_pointer(path: Path) -> bool:
+def _probe_file(path: Path) -> str:
+    """Classify a regular file as ``ok``, ``lfs``, or ``unreadable`` without following symlinks."""
     try:
-        if path.stat().st_size > 1024:
-            return False
-        with path.open("rb") as stream:
-            return stream.read(len(LFS_HEADER)) == LFS_HEADER
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     except OSError:
-        return False
+        return "unreadable"
+    try:
+        with os.fdopen(descriptor, "rb", closefd=True) as stream:
+            header = stream.read(len(LFS_HEADER))
+            if header != LFS_HEADER:
+                return "ok"
+            return "lfs" if os.fstat(stream.fileno()).st_size <= 1024 else "ok"
+    except OSError:
+        return "unreadable"
 
 
 def build_inventory(root: Path, *, max_file_bytes: int = 1_000_000, max_files: int = 10_000) -> Inventory:
@@ -142,8 +163,12 @@ def build_inventory(root: Path, *, max_file_bytes: int = 1_000_000, max_files: i
             if size > max_file_bytes:
                 inventory.skipped.append(SkippedEntry(relative, f"file exceeds {max_file_bytes} byte limit"))
                 continue
-            if _is_lfs_pointer(resolved):
+            probe = _probe_file(resolved)
+            if probe == "lfs":
                 inventory.skipped.append(SkippedEntry(relative, "Git LFS pointer; content unavailable"))
+                continue
+            if probe == "unreadable":
+                inventory.skipped.append(SkippedEntry(relative, "file not readable by the analyzer"))
                 continue
             if path.suffix.lower() in SCANNABLE_SUFFIXES:
                 inventory.scan_files.append(relative)
@@ -158,22 +183,54 @@ def build_inventory(root: Path, *, max_file_bytes: int = 1_000_000, max_files: i
     return inventory
 
 
+def _opened_path_is_within(descriptor: int, root: Path) -> bool:
+    """Confirm, where the platform allows it, that an open descriptor still lives under root."""
+    try:
+        opened = Path(os.readlink(f"/proc/self/fd/{descriptor}"))
+    except OSError:
+        return True  # No /proc: rely on the checks made before opening.
+    return opened.is_relative_to(root)
+
+
+def _copy_regular_file(root: Path, relative: str, target: Path, max_file_bytes: int) -> None:
+    source = root / relative
+    resolved = source.resolve(strict=True)
+    if not resolved.is_relative_to(root):
+        raise ScopeError(f"file escaped repository during staging: {relative}")
+    # O_NOFOLLOW makes a path-swap to a symlink after the inventory fail instead of being followed.
+    try:
+        descriptor = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError as error:
+        raise ScopeError(f"file could not be opened safely during staging: {relative}") from error
+    with os.fdopen(descriptor, "rb", closefd=True) as stream:
+        opened = os.fstat(stream.fileno())
+        if not stat.S_ISREG(opened.st_mode):
+            raise ScopeError(f"file changed type during staging: {relative}")
+        if not _opened_path_is_within(stream.fileno(), root):
+            raise ScopeError(f"file escaped repository during staging: {relative}")
+        if opened.st_size > max_file_bytes:
+            raise ScopeError(f"file exceeded size limit during staging: {relative}")
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        copied = 0
+        with target.open("xb") as output:
+            while chunk := stream.read(COPY_CHUNK_BYTES):
+                copied += len(chunk)
+                if copied > max_file_bytes:
+                    raise ScopeError(f"file exceeded size limit during staging: {relative}")
+                output.write(chunk)
+    target.chmod(0o400)
+
+
 def stage_scan_files(root: Path, inventory: Inventory, destination: Path, *, max_file_bytes: int) -> None:
     destination.mkdir(mode=0o700, parents=True, exist_ok=False)
     for relative in inventory.scan_files:
-        source = root / relative
-        source_stat = source.lstat()
-        if stat.S_ISLNK(source_stat.st_mode) or not stat.S_ISREG(source_stat.st_mode):
-            raise ScopeError(f"file changed type during staging: {relative}")
-        resolved = source.resolve(strict=True)
-        if not resolved.is_relative_to(root):
-            raise ScopeError(f"file escaped repository during staging: {relative}")
-        if resolved.stat().st_size > max_file_bytes:
-            raise ScopeError(f"file exceeded size limit during staging: {relative}")
-        target = destination / relative
-        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        shutil.copyfile(resolved, target)
-        target.chmod(0o400)
+        _copy_regular_file(root, relative, destination / relative, max_file_bytes)
+
+    # Tool-owned, empty ignore file: disables Semgrep's built-in default ignores without
+    # ever importing patterns from the analyzed repository.
+    ignore_file = destination / SEMGREP_IGNORE_NAME
+    ignore_file.write_bytes(b"")
+    ignore_file.chmod(0o400)
 
     for directory, subdirectories, _ in os.walk(destination, topdown=False):
         for name in subdirectories:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -63,4 +64,83 @@ def test_staging_copies_only_selected_regular_files(tmp_path: Path) -> None:
     staged = tmp_path / "staged"
     stage_scan_files(root, inventory, staged, max_file_bytes=1_000_000)
     assert (staged / "app.py").is_file()
-    assert not (staged / ".semgrepignore").exists()
+    # The only ignore file in the staged tree is the tool-owned empty one, never the target's.
+    assert (staged / ".semgrepignore").read_bytes() == b""
+
+
+def test_unreadable_python_file_is_reported_as_skipped_not_selected(tmp_path: Path) -> None:
+    if os.geteuid() == 0:
+        pytest.skip("file permissions do not restrict the superuser")
+    root = tmp_path / "repository"
+    root.mkdir()
+    (root / "ok.py").write_text("x = 1\n", encoding="utf-8")
+    locked = root / "locked.py"
+    locked.write_text("eval('x')\n", encoding="utf-8")
+    locked.chmod(0o000)
+    try:
+        inventory = build_inventory(root)
+    finally:
+        locked.chmod(0o600)
+    assert inventory.scan_files == ["ok.py"]
+    assert {item.path: item.reason for item in inventory.skipped}[
+        "locked.py"
+    ] == "file not readable by the analyzer"
+
+
+def test_output_validation_rules(tmp_path: Path) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    root = root.resolve()
+
+    fresh = tmp_path / "fresh"
+    assert validate_output_path(root, fresh) == fresh.resolve()
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert validate_output_path(root, empty) == empty.resolve()
+
+    previous = tmp_path / "previous"
+    previous.mkdir()
+    for name in ("run.json", "findings.json", "report.md"):
+        (previous / name).write_text("{}", encoding="utf-8")
+    assert validate_output_path(root, previous) == previous.resolve()
+
+    unrelated = tmp_path / "unrelated"
+    unrelated.mkdir()
+    (unrelated / "important.docx").write_text("x", encoding="utf-8")
+    with pytest.raises(ScopeError):
+        validate_output_path(root, unrelated)
+
+    plain_file = tmp_path / "plain_file"
+    plain_file.write_text("x", encoding="utf-8")
+    with pytest.raises(ScopeError):
+        validate_output_path(root, plain_file)
+
+    with pytest.raises(ScopeError):
+        validate_output_path(root, tmp_path)  # an ancestor that contains the repository
+
+
+def test_staging_rejects_a_file_swapped_for_an_outside_symlink(tmp_path: Path) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    (root / "app.py").write_text("x = 1\n", encoding="utf-8")
+    secret = tmp_path / "outside_secret.txt"
+    secret.write_text("synthetic outside content\n", encoding="utf-8")
+    inventory = build_inventory(resolve_repository(root))
+
+    (root / "app.py").unlink()
+    (root / "app.py").symlink_to(secret)
+
+    with pytest.raises(ScopeError):
+        stage_scan_files(root.resolve(), inventory, tmp_path / "staged", max_file_bytes=1_000_000)
+    assert not (tmp_path / "staged" / "app.py").exists()
+
+
+def test_staging_enforces_size_limit_even_if_the_file_grew(tmp_path: Path) -> None:
+    root = tmp_path / "repository"
+    root.mkdir()
+    (root / "app.py").write_text("x = 1\n", encoding="utf-8")
+    inventory = build_inventory(resolve_repository(root))
+    (root / "app.py").write_text("x = '" + "A" * 5000 + "'\n", encoding="utf-8")
+    with pytest.raises(ScopeError):
+        stage_scan_files(root.resolve(), inventory, tmp_path / "staged", max_file_bytes=1000)

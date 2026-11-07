@@ -10,6 +10,7 @@
     "duration_ms",
     "analysis_profile",
     "scope",
+    "vulnerability_scan_performed",
     "controls",
     "limits",
     "inventory",
@@ -18,18 +19,96 @@
     "complete"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "run_id": {"type": "string", "format": "uuid"},
-    "started_at": {"type": "string", "format": "date-time"},
-    "duration_ms": {"type": "integer", "minimum": 0},
-    "revision": {"type": ["string", "null"]},
-    "analysis_profile": {"const": "repository"},
-    "scope": {"type": "object"},
-    "controls": {"type": "object"},
-    "limits": {"type": "object"},
-    "inventory": {"type": "object"},
-    "scanner": {"type": "object"},
-    "limitations": {"type": "array", "items": {"type": "string"}},
-    "complete": {"type": "boolean"}
+    "schema_version": {
+      "const": "1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "analysis_profile": {
+      "const": "repository"
+    },
+    "scope": {
+      "type": "object"
+    },
+    "controls": {
+      "type": "object"
+    },
+    "limits": {
+      "type": "object"
+    },
+    "inventory": {
+      "type": "object"
+    },
+    "scanner": {
+      "type": "object",
+      "required": [
+        "name",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "inventory",
+            "semgrep"
+          ]
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "partial_coverage",
+            "unavailable",
+            "failed",
+            "timeout",
+            "output_limited",
+            "malformed_output",
+            "invalid_findings"
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "files_scanned": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "sandbox": {
+          "type": "object"
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "vulnerability_scan_performed": {
+      "type": "boolean"
+    }
   }
 }

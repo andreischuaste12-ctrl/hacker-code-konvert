@@ -4,6 +4,8 @@ import re
 from pathlib import PurePosixPath
 from typing import Any
 
+from hacker_code_konvert.textsafety import has_unsafe_characters
+
 STATUSES = {"candidate", "validated", "false_positive", "accepted_risk"}
 SEVERITIES = {"informational", "low", "medium", "high", "critical"}
 CONFIDENCE = {"low", "medium", "high"}
@@ -85,9 +87,7 @@ def validate_finding(finding: dict[str, Any]) -> None:
     path = location.get("path")
     _require(isinstance(path, str) and bool(path), "location.path is required")
     _require(
-        "\\" not in path
-        and re.match(r"^[A-Za-z]:/", path) is None
-        and not any(ord(character) < 32 for character in path),
+        "\\" not in path and re.match(r"^[A-Za-z]:/", path) is None and not has_unsafe_characters(path),
         "invalid location.path",
     )
     pure_path = PurePosixPath(path)

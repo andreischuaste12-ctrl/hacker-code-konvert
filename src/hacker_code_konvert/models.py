@@ -33,6 +33,10 @@ class ScannerResult:
     errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
     command: list[str] = field(default_factory=list)
+    # Facts about the isolation that was actually applied; empty when no sandbox was started.
+    sandbox: dict[str, Any] = field(default_factory=dict)
+    # Files the scanner reported as analyzed, used to prove coverage; None when not applicable.
+    files_scanned: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
