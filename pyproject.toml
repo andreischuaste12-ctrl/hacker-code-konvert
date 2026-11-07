@@ -20,8 +20,11 @@ semgrep = [
   "semgrep==1.184.0"
 ]
 dev = [
-  "pytest==8.4.2",
-  "ruff==0.17.4"
+  "pytest==9.0.3",
+  "ruff==0.17.4",
+  "jsonschema>=4.25.1",
+  "pip-audit>=2.9.0",
+  "setuptools==84.2.1"
 ]
 
 [project.scripts]

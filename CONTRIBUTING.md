@@ -26,8 +26,8 @@ The MVP uses Python 3.12, pytest, Ruff, Semgrep 1.184.0, and Bubblewrap on Linux
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -r requirements-dev.txt
-python -m pip install --no-deps -e .
+python -m pip install --require-hashes -r requirements-dev.txt
+python -m pip install --no-deps --no-build-isolation -e .
 ruff check src scripts tests
 pytest -q
 ```
@@ -54,7 +54,9 @@ Changes that introduce or modify analysis behavior must:
 - preserve scanner failures and coverage limitations;
 - require human review before disclosure or patch publication.
 - preserve fail-closed behavior when scanner isolation is unavailable.
-- add synthetic positive and negative fixtures when changing detection rules.
+- add synthetic positive and negative fixtures when changing detection rules;
+- never claim coverage the run did not demonstrate: a scanner skip, error, or unexplained difference between the files selected and the files analyzed must make the run incomplete;
+- treat every value read from the analyzed repository (including `.git` contents and file names) as hostile, and bound reads, patterns, and output.
 
 Broad exclusions such as “ignore every denial-of-service finding” are not accepted. Filtering must depend on the selected analysis profile, threat model, and documented evidence.
 
