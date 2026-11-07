@@ -9,6 +9,12 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+# Directories mounted read-only so the scanner runtime can load libraries and configuration.
+SYSTEM_MOUNTS = ("/usr", "/bin", "/lib", "/lib64", "/opt", "/etc")
+# Locations from which a scanner executable needs no additional mount.
+SYSTEM_EXECUTABLE_BASES = ("/usr", "/bin", "/opt")
 
 
 @dataclass
@@ -32,33 +38,94 @@ def bubblewrap_path() -> str:
     return executable
 
 
+def bubblewrap_version() -> str | None:
+    try:
+        result = subprocess.run(
+            [bubblewrap_path(), "--version"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=5,
+            cwd="/",
+            env={"PATH": "/usr/bin:/bin"},
+        )
+    except (OSError, subprocess.TimeoutExpired, SandboxUnavailable):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.decode("utf-8", errors="replace").strip() or None
+
+
 def bubblewrap_supported() -> bool:
+    """Check that bubblewrap can start the same kind of namespaces the scanner run needs."""
     try:
         executable = bubblewrap_path()
+        true_binary = shutil.which("true")
+        if not true_binary:
+            return False
+        command = [executable, "--unshare-all", "--cap-drop", "ALL", "--proc", "/proc", "--dev", "/dev"]
+        for system_path in ("/usr", "/bin", "/lib", "/lib64"):
+            if Path(system_path).exists():
+                command.extend(["--ro-bind", system_path, system_path])
+        command.extend(["--", str(Path(true_binary).resolve())])
         result = subprocess.run(
-            [
-                executable,
-                "--ro-bind",
-                "/usr",
-                "/usr",
-                "--proc",
-                "/proc",
-                "--dev",
-                "/dev",
-                "--unshare-net",
-                "--",
-                "/usr/bin/true",
-            ],
+            command,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=False,
             timeout=5,
+            cwd="/",
             env={"PATH": "/usr/bin:/bin"},
         )
     except (OSError, subprocess.TimeoutExpired, SandboxUnavailable):
         return False
     return result.returncode == 0
+
+
+def _is_under(path: Path, bases: tuple[str, ...]) -> bool:
+    return any(path.is_relative_to(Path(base)) for base in bases)
+
+
+def _venv_home(config: Path) -> Path | None:
+    try:
+        for line in config.read_text(encoding="utf-8", errors="replace").splitlines():
+            key, separator, value = line.partition("=")
+            if separator and key.strip() == "home":
+                return Path(value.strip())
+    except OSError:
+        return None
+    return None
+
+
+def _require_narrow_mount(path: Path) -> Path:
+    # Never expose the filesystem root or a top-level directory such as /home or /srv.
+    if len(path.parts) < 3:
+        raise SandboxUnavailable(f"refusing to mount broad directory for the scanner runtime: {path}")
+    return path
+
+
+def runtime_mounts(executable: Path) -> list[Path]:
+    """Return the extra read-only mounts the scanner runtime needs.
+
+    Supported layouts are system locations (/usr, /bin, /opt) and Python virtual environments.
+    Any other layout would require exposing an unrelated directory (for example a home
+    directory), so it fails closed instead.
+    """
+    if _is_under(executable, SYSTEM_EXECUTABLE_BASES):
+        return []
+    environment_root = executable.parent.parent
+    config = environment_root / "pyvenv.cfg"
+    if executable.parent.name == "bin" and config.is_file():
+        mounts = [_require_narrow_mount(environment_root)]
+        interpreter_home = _venv_home(config)
+        if interpreter_home is not None and not _is_under(interpreter_home, SYSTEM_EXECUTABLE_BASES):
+            mounts.append(_require_narrow_mount(interpreter_home.parent))
+        return mounts
+    raise SandboxUnavailable(
+        "the scanner must be installed under /usr or /opt, or inside a Python virtual environment; "
+        f"refusing to expose the directory around {executable}"
+    )
 
 
 def build_bubblewrap_command(
@@ -71,6 +138,8 @@ def build_bubblewrap_command(
     wrapped = [
         bwrap,
         "--unshare-all",
+        "--cap-drop",
+        "ALL",
         "--die-with-parent",
         "--new-session",
         "--proc",
@@ -93,18 +162,30 @@ def build_bubblewrap_command(
         "/target",
     ]
 
-    for system_path in ("/usr", "/bin", "/lib", "/lib64", "/opt", "/etc"):
+    for system_path in SYSTEM_MOUNTS:
         path = Path(system_path)
         if path.exists():
             wrapped.extend(["--ro-bind", system_path, system_path])
 
     executable = Path(command[0]).resolve(strict=True)
-    if not any(executable.is_relative_to(Path(base)) for base in ("/usr", "/bin", "/opt")):
-        prefix = executable.parent.parent
-        wrapped.extend(["--ro-bind", str(prefix), str(prefix)])
+    for mount in runtime_mounts(executable):
+        wrapped.extend(["--ro-bind", str(mount), str(mount)])
 
     wrapped.extend(["--", *command])
     return wrapped
+
+
+def sandbox_metadata() -> dict[str, Any]:
+    """Describe the isolation controls that build_bubblewrap_command applies."""
+    return {
+        "tool": "bubblewrap",
+        "version": bubblewrap_version(),
+        "namespaces": "user, mount, pid, ipc, uts, cgroup, network",
+        "network": "disabled",
+        "capabilities": "dropped",
+        "target": "read-only",
+        "seccomp": "not applied",
+    }
 
 
 def _set_limits(memory_bytes: int, cpu_seconds: int, output_bytes: int) -> None:
@@ -112,6 +193,7 @@ def _set_limits(memory_bytes: int, cpu_seconds: int, output_bytes: int) -> None:
     resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
     resource.setrlimit(resource.RLIMIT_FSIZE, (output_bytes, output_bytes))
     resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     os.umask(0o077)
 
 
@@ -128,6 +210,7 @@ def run_limited(
         "LC_ALL": "C.UTF-8",
         "PATH": "/usr/local/bin:/usr/bin:/bin",
         "SEMGREP_SEND_METRICS": "off",
+        "SEMGREP_ENABLE_VERSION_CHECK": "0",
     }
     started = time.monotonic()
     with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
@@ -137,6 +220,7 @@ def run_limited(
             stdout=stdout_file,
             stderr=stderr_file,
             env=environment,
+            cwd="/",
             close_fds=True,
             start_new_session=True,
             preexec_fn=lambda: _set_limits(memory_bytes, timeout_seconds, output_bytes),

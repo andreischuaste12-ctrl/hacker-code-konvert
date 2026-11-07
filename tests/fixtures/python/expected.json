@@ -3,6 +3,10 @@
     {
       "rule_id": "hck.python.dangerous-eval",
       "path": "vulnerable.py"
+    },
+    {
+      "rule_id": "hck.python.dangerous-eval",
+      "path": "tests/hidden_in_tests.py"
     }
   ]
 }

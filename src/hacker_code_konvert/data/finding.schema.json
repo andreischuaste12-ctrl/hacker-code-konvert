@@ -85,5 +85,24 @@
     "disclosure": {"type": "object"},
     "taxonomy": {"type": "object"},
     "risk": {"type": "object"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "validated"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "validation": {"additionalProperties": {"const": "pass"}},
+          "review": {"type": "object", "required": ["human_reviewed", "reviewer", "reviewed_at"], "properties": {"human_reviewed": {"const": true}, "reviewer": {"type": "string", "minLength": 1}, "reviewed_at": {"type": "string", "minLength": 1}}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "accepted_risk"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "review": {"type": "object", "required": ["human_reviewed", "reviewer", "reviewed_at"], "properties": {"human_reviewed": {"const": true}, "reviewer": {"type": "string", "minLength": 1}, "reviewed_at": {"type": "string", "minLength": 1}}}
+        }
+      }
+    }
+  ]
 }
