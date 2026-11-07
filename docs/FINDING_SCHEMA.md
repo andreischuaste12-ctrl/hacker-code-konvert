@@ -46,6 +46,12 @@ Every scanner result starts as a candidate. This normalized contract connects sc
 | `taxonomy` | CWE, OWASP, or other applicable classification |
 | `risk` | CVSS, EPSS, KEV, SSVC, assumptions, and observation dates |
 
+## Human Review Is an Attestation
+
+`review.reviewer` and `review.reviewed_at` are recorded by whoever edits the JSON. The contract proves that the fields are present and consistent, not who filled them in. Treat a `validated` status as an auditable claim, not as cryptographic proof, until signed reviews are introduced.
+
+The bundled JSON Schemas encode the same review invariants as the executable validator for `validated` and `accepted_risk`. Path safety (relative, no traversal, no control or bidirectional characters) is enforced by the executable validator.
+
 ## Disclosure Lifecycle
 
 `disclosure.status` uses one of these values:

@@ -11,13 +11,17 @@ The MVP is local-first:
 - normalized reports are written only to the operator-selected output directory;
 - AI processing, telemetry, and external uploads are disabled.
 
-Semgrep receives bundled local rules, `--metrics=off`, and `SEMGREP_SEND_METRICS=off`. A run fails when the required networkless sandbox cannot be created.
+Semgrep receives bundled local rules, `--metrics=off`, `--disable-version-check`, and the matching environment variables, for the sandboxed run and for the host-side version probe. A run fails when the required networkless sandbox cannot be created.
+
+## What "AI processing: disabled" means
+
+The `ai_processing: disabled` control describes the CLI: it sends nothing to an AI provider. It does not describe an AI agent that operates the CLI. An agent that reads the analyzed source code, findings, or reports sends that content to its model provider. Before an agent reads private code, the operator must confirm that this is permitted for the repository. See the data-handling rules in `SKILL.md`. Operators who need to prevent it can restrict the agent with permission rules, for example by denying `Bash(semgrep:*)` and network-capable tools, and by limiting file access to the report directory.
 
 ## Stored Data
 
 The output contains relative paths, scanner rule identifiers, redacted messages, tool versions, run configuration, limitations, and normalized findings. It does not intentionally contain source snippets, absolute repository paths, raw secrets, or raw scanner artifacts.
 
-Output directories use mode `0700`; generated artifacts use mode `0600`. Operators remain responsible for storage, backups, access control, retention, and secure sharing after generation.
+Output directories the CLI creates use mode `0700`; generated artifacts use mode `0600`. The CLI refuses an existing output directory that holds anything other than its own previous artifacts, and it never changes the permissions of a directory it did not create. `run.json` is written last, so its presence marks a complete set. Operators remain responsible for storage, backups, access control, retention, and secure sharing after generation.
 
 ## Temporary Data
 

@@ -49,6 +49,8 @@ Scanner output will be treated as evidence for review, not as a confirmed vulner
 - [MVP specification](docs/PRODUCT_SPEC.md): implemented inputs, outputs, limits, and unsupported cases.
 - [Scanner isolation](docs/SCANNER_ISOLATION.md): staging, sandbox, network, and resource controls.
 - [Privacy](docs/PRIVACY.md): local data flow, retention, and external-service policy.
+- [Dependencies](docs/DEPENDENCIES.md): lock generation, supply-chain checks, and accepted advisories.
+- [Repository hardening checklist](docs/MAINTAINER_CHECKLIST.md): GitHub settings that files cannot enforce.
 - [Quality and measurement](docs/QUALITY.md): fixture metrics, thresholds, and interpretation limits.
 - [Finding schema](docs/FINDING_SCHEMA.md): normalized contract for security findings.
 - [Verification gates](docs/VERIFICATION_GATES.md): evidence requirements and verdict rules.
@@ -68,7 +70,7 @@ python3 -m venv .venv
 python -m pip install -e '.[semgrep]'
 ```
 
-Run a local inventory without an external scanner:
+Run the isolated Python Semgrep profile (the default scanner):
 
 ```bash
 hck scan /path/to/authorized/repository \
@@ -76,29 +78,31 @@ hck scan /path/to/authorized/repository \
   --authorized
 ```
 
-Run the isolated Python Semgrep profile:
+`--authorized` records your confirmation that the repository is in scope; the CLI cannot verify it. A run is complete only when Semgrep demonstrably analyzed every selected file: any file the scanner skipped, any scanner error, and any sandbox or scanner failure produces an incomplete run (`complete: false`, exit status `3`) with the gaps listed in the report.
 
-```bash
-hck scan /path/to/authorized/repository \
-  --output /tmp/hck-report \
-  --authorized \
-  --scanner semgrep
-```
+To list files without scanning for vulnerabilities, pass `--scanner inventory`. That mode is labelled in the report and in `run.json` (`vulnerability_scan_performed: false`) and says nothing about whether the code is safe.
 
-The output directory must remain outside the analyzed repository. It receives `run.json`, `findings.json`, and `report.md`, with private permissions. See the [MVP specification](docs/PRODUCT_SPEC.md) for exit statuses and limitations.
+The output directory must be new, empty, or hold only a previous run's artifacts, and it must remain outside the analyzed repository. It receives `run.json`, `findings.json`, and `report.md`, with private permissions. See the [MVP specification](docs/PRODUCT_SPEC.md) for exit statuses and limitations. The CLI itself performs no AI processing; an AI agent that reads the analyzed code does (see [Privacy](docs/PRIVACY.md)).
+
+### Using the skill
+
+`SKILL.md` refers to files under `docs/`, so the whole repository is the skill directory. Install it by cloning or symlinking the repository as `~/.claude/skills/hacker-code-konvert/`; copying `SKILL.md` alone breaks those references. The skill directs the agent to run the CLI above instead of invoking scanners directly. Its `allowed-tools` entry only pre-approves tools: add permission deny rules if you need to prevent an agent from running other tools.
 
 ## Development
 
 ```bash
-python -m pip install -r requirements-dev.txt
-python -m pip install --no-deps -e .
+python -m pip install --require-hashes -r requirements-dev.txt
+python -m pip install --no-deps --no-build-isolation -e .
 ruff check src scripts tests
 pytest -q
 ```
 
-The lock file records the complete Python 3.12 development dependency graph used by CI. CI repeats the
-package build, lint, unit tests, isolated scanner fixture, schema checks, and fixture quality measurement
-on every pull request and push to `main`.
+The lock file records the complete Python 3.12 development dependency graph, with hashes, used by CI. CI
+repeats the dependency audit, package build, lint, tests (the sandbox and Semgrep integration tests are
+mandatory there), isolated scanner fixture, and fixture quality measurement on every pull request, on every push
+to `main`, and weekly. See [Dependencies](docs/DEPENDENCIES.md) for how the lock is generated and which
+advisories are accepted, and the [repository hardening checklist](docs/MAINTAINER_CHECKLIST.md) for the GitHub
+settings the owner must confirm.
 
 ## Community
 

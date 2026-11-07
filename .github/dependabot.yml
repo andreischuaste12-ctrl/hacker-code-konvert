@@ -5,6 +5,24 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      development-tools:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # semgrep==1.184.0 pins these packages (for example mcp==1.29.0, opentelemetry-*~=1.37,
+      # jsonschema~=4.25.1, peewee~=3.14, wcmatch~=8.3, and wrapt through opentelemetry-instrumentation).
+      # A bump of any of them cannot resolve until Semgrep itself is upgraded; see docs/DEPENDENCIES.md.
+      # Security updates are not suppressed by this list.
+      - dependency-name: "mcp"
+      - dependency-name: "opentelemetry-*"
+      - dependency-name: "jsonschema"
+      - dependency-name: "peewee"
+      - dependency-name: "wcmatch"
+      - dependency-name: "wrapt"
 
   - package-ecosystem: github-actions
     directory: /

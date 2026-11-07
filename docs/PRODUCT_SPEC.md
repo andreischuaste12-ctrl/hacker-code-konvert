@@ -14,7 +14,7 @@ The CLI is the enforcement layer for the MVP. Prose in `SKILL.md` does not repla
 | Capability | Input | Output | Current limits |
 | --- | --- | --- | --- |
 | Repository inventory | Explicit local directory and authorization confirmation | Relative file inventory, languages, manifests, skipped entries, and limitations | Maximum 10,000 files by default; symlinks and nested repositories are not traversed |
-| Python SAST | Regular `.py` files staged from the authorized root | Semgrep candidates normalized to the finding contract | Python only; two bundled rules; candidates are never automatically validated |
+| Python SAST | Regular `.py` files staged from the authorized root | Semgrep candidates normalized to the finding contract, with a coverage check | Python only; two bundled rules; candidates are never automatically validated |
 | Finding validation | JSON finding list | Pass or explicit contract error | Semantic cross-field rules are enforced in Python; JSON Schema is published for interoperability |
 | Reporting | Completed or incomplete run | `run.json`, `findings.json`, and `report.md` | Markdown and normalized JSON only; SARIF is deferred |
 
@@ -53,6 +53,14 @@ A scanner result is a `candidate`. It becomes `validated` only after Gates 1 thr
 | --- | --- |
 | `0` | Requested checks completed; findings may still be candidates |
 | `2` | Invalid input, missing authorization, or scope failure |
-| `3` | A selected scanner was unavailable, failed, timed out, exceeded limits, or returned invalid output |
+| `3` | A selected scanner was unavailable, failed, timed out, exceeded limits, returned invalid output, or did not demonstrably cover every selected file (`partial_coverage`) |
 
 An exit code of `0` never means that the repository is secure.
+
+## Scanner Modes
+
+`hck scan` runs the isolated Semgrep profile by default. `--scanner inventory` lists and counts files only: the report and `run.json` state `vulnerability_scan_performed: false`, and the absence of findings has no meaning in that mode.
+
+## Supported Scanner Installations
+
+Semgrep must be installed under `/usr` or `/opt`, or inside a Python virtual environment, so the sandbox can mount the runtime without exposing unrelated directories (for example `pip install --user` into a home directory is rejected). The sandbox needs about 4 GiB of address space for `semgrep-core`; lower `--memory-mb` values make Semgrep fail.

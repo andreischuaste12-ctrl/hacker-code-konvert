@@ -1,6 +1,7 @@
 ---
 name: hacker-code-konvert
 description: Defensive source-code security auditor that coordinates deterministic scanners, validates evidence, classifies risk, and produces human-reviewed remediation reports.
+allowed-tools: Read, Grep, Glob, Bash(hck:*)
 ---
 
 # Hacker Code Konvert
@@ -22,6 +23,23 @@ Before analysis, establish:
 - the intended output format and audience.
 
 Static analysis is limited to the supplied or explicitly selected code. Active testing of deployed systems requires explicit authorization, named targets, permitted techniques, and a defined time window.
+
+## Required Execution Path
+
+Static scanning of a local repository runs only through the project CLI, which enforces staging, isolation, limits, and coverage checks that this document cannot enforce on its own:
+
+```bash
+hck scan <repository> --output <new-empty-directory> --authorized
+```
+
+- Pass `--authorized` only after the human has confirmed in this conversation that the repository is in scope. Never infer authorization.
+- Do not run Semgrep, OSV-Scanner, Gitleaks, or any other scanner directly against the target working tree, and never load scanner configuration or ignore files from the target.
+- Read the result before drawing conclusions. `complete: false`, scanner status `partial_coverage`, or exit status `3` means coverage is incomplete: report the gaps, never a clean result. `vulnerability_scan_performed: false` (`--scanner inventory`) is an inventory only and says nothing about vulnerabilities.
+- `allowed-tools` in this file only pre-approves the listed tools; it does not remove others. Operators who need enforcement should add permission deny rules (see `docs/PRIVACY.md`).
+
+### Data handling by the agent
+
+The CLI performs no AI processing. An AI agent that reads the target's source code or findings does: that content is sent to the model provider. Confirm with the human that this is permitted for the repository (especially private code) before reading it. Prefer working from `findings.json` and open only the specific files and lines a candidate needs. Never quote raw secrets.
 
 ## Operating Rules
 
@@ -61,7 +79,7 @@ Use the smallest relevant set of tools:
 
 Record tool versions, rule identifiers, commands, exit outcomes, and relevant limitations. Tool failure must not be reported as a clean scan.
 
-For the implemented MVP, follow `docs/SCANNER_ISOLATION.md`: use a controlled staged copy, bundled rules, networkless Bubblewrap isolation, explicit limits, and fail-closed behavior. Do not load scanner configuration or ignore files from the target repository.
+For the implemented MVP, run `hck scan` as described in Required Execution Path and follow `docs/SCANNER_ISOLATION.md`: a controlled staged copy, bundled rules, networkless Bubblewrap isolation, explicit limits, a coverage check against the inventory, and fail-closed behavior. Do not load scanner configuration or ignore files from the target repository.
 
 ### 4. Normalization and triage
 
