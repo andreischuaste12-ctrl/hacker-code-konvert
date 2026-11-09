@@ -4,6 +4,7 @@ import os
 import stat
 from pathlib import Path
 
+from hacker_code_konvert.formats import dependency_file
 from hacker_code_konvert.models import Inventory, SkippedEntry
 
 LANGUAGE_SUFFIXES = {
@@ -100,12 +101,19 @@ def _probe_file(path: Path) -> str:
 
 
 def build_inventory(
-    root: Path, *, max_file_bytes: int = 1_000_000, max_files: int = 10_000, snapshot: Path | None = None
+    root: Path,
+    *,
+    max_file_bytes: int = 1_000_000,
+    max_files: int = 10_000,
+    snapshot: Path | None = None,
+    scanner: str = "all",
+    max_total_bytes: int = 256 * 1024**2,
+    max_depth: int = 64,
 ) -> Inventory:
     if snapshot is not None:
         from hacker_code_konvert.snapshot import capture
 
-        return capture(root, snapshot, max_file_bytes, max_files)
+        return capture(root, snapshot, max_file_bytes, max_files, scanner, max_total_bytes, max_depth)
     inventory = Inventory()
     pending = [root]
 
@@ -160,7 +168,7 @@ def build_inventory(
             if inventory.files_seen > max_files:
                 raise ScopeError(f"repository exceeds maximum file count ({max_files})")
 
-            if path.name in MANIFEST_NAMES:
+            if path.name in MANIFEST_NAMES or dependency_file(path.name):
                 inventory.manifests.append(relative)
             language = LANGUAGE_SUFFIXES.get(path.suffix.lower())
             if language:

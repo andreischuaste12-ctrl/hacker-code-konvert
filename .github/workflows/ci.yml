@@ -31,7 +31,7 @@ jobs:
           cache: pip
 
       - name: Install operating-system sandbox
-        run: sudo apt-get update && sudo apt-get install --yes bubblewrap libseccomp2
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap libseccomp2 openssh-client
 
       # Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor. This only relaxes the
       # ephemeral, single-use runner so the sandbox can be exercised; the CLI never changes host settings

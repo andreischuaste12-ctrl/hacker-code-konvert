@@ -4,7 +4,15 @@ All notable project changes are documented here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
-No unreleased changes.
+### Security audit follow-up
+
+- Extend pinned Gitleaks vendor rules and retain neutral-file extensions; seven-format synthetic corpus.
+- Verify offline OSV database hashes/freshness and accept fixed Python requirements and more manifests.
+- Use iterative, scanner-specific capture with depth and total-byte limits and incomplete coverage markers.
+- Disable nested user namespaces and deny modern mount, io_uring, VSOCK and namespace escape interfaces.
+- Separate read-only release builds from privileged attestation/publication; fix single-maintainer ruleset.
+- Expand taint sources/sinks, exempt nonsecurity hashes, preserve printable Unicode paths and enrich SARIF.
+- Declare ssh-keygen as a tested prerequisite and install openssh-client in CI.
 
 ## [0.2.0] - 2026-11-09
 

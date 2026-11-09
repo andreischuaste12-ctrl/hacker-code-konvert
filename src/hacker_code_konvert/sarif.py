@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote_from_bytes
 
+from hacker_code_konvert import __version__
+
 
 def render_sarif(run: dict[str, Any], findings: list[dict[str, Any]]) -> dict[str, Any]:
     results = []
@@ -39,7 +41,22 @@ def render_sarif(run: dict[str, Any], findings: list[dict[str, Any]]) -> dict[st
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "Hacker Code Konvert", "version": "0.2.0"}},
+                "tool": {
+                    "driver": {
+                        "name": "Hacker Code Konvert",
+                        "version": __version__,
+                        "rules": list(
+                            {
+                                f["sources"][0].get("rule_id", f["category"]): {
+                                    "id": f["sources"][0].get("rule_id", f["category"]),
+                                    "shortDescription": {"text": f["title"]},
+                                    "properties": {"precision": "medium"},
+                                }
+                                for f in findings
+                            }.values()
+                        ),
+                    }
+                },
                 "invocations": [{"executionSuccessful": bool(run["complete"])}],
                 "results": results,
             }

@@ -40,11 +40,19 @@ rules:
     message: Potential unsafe-pickle; contextual review is required.
     pattern: pickle.loads(...)
 
-  - id: hck.python.weak-password-hash
+  - id: hck.python.weak-hash
     languages: [python]
     severity: WARNING
-    message: Potential weak-password-hash; contextual review is required.
-    pattern: hashlib.md5(...)
+    message: Weak hash API; verify whether it protects passwords or other security-sensitive data.
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+          - pattern: hashlib.new("md5", ...)
+          - pattern: hashlib.new("sha1", ...)
+      - pattern-not: hashlib.md5(..., usedforsecurity=False, ...)
+      - pattern-not: hashlib.sha1(..., usedforsecurity=False, ...)
+      - pattern-not: hashlib.new(..., usedforsecurity=False, ...)
 
   - id: hck.python.tls-verification-disabled
     languages: [python]
@@ -74,8 +82,20 @@ rules:
       - pattern: sys.argv[$I]
       - pattern: request.args.get(...)
       - pattern: request.args[$KEY]
+      - pattern: request.form.get(...)
+      - pattern: request.form[$KEY]
+      - pattern: request.json[$KEY]
+      - pattern: request.get_json(...)
+      - pattern: request.values.get(...)
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+      - pattern: request.GET[$KEY]
+      - pattern: request.POST[$KEY]
+      - pattern: os.environ.get(...)
+      - pattern: os.environ[$KEY]
     pattern-sinks:
       - pattern: os.system($X)
+      - pattern: os.popen($X)
 
   - id: hck.python.shell-subprocess
     languages: [python]
@@ -87,9 +107,23 @@ rules:
       - pattern: sys.argv[$I]
       - pattern: request.args.get(...)
       - pattern: request.args[$KEY]
+      - pattern: request.form.get(...)
+      - pattern: request.form[$KEY]
+      - pattern: request.json[$KEY]
+      - pattern: request.get_json(...)
+      - pattern: request.values.get(...)
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+      - pattern: request.GET[$KEY]
+      - pattern: request.POST[$KEY]
+      - pattern: os.environ.get(...)
+      - pattern: os.environ[$KEY]
     pattern-sinks:
       - pattern: subprocess.run($X, ..., shell=True, ...)
       - pattern: subprocess.call($X, ..., shell=True, ...)
+      - pattern: subprocess.Popen($X, ..., shell=True, ...)
+      - pattern: subprocess.check_output($X, ..., shell=True, ...)
+      - pattern: subprocess.check_call($X, ..., shell=True, ...)
 
   - id: hck.python.sql-injection
     languages: [python]
@@ -101,6 +135,17 @@ rules:
       - pattern: sys.argv[$I]
       - pattern: request.args.get(...)
       - pattern: request.args[$KEY]
+      - pattern: request.form.get(...)
+      - pattern: request.form[$KEY]
+      - pattern: request.json[$KEY]
+      - pattern: request.get_json(...)
+      - pattern: request.values.get(...)
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+      - pattern: request.GET[$KEY]
+      - pattern: request.POST[$KEY]
+      - pattern: os.environ.get(...)
+      - pattern: os.environ[$KEY]
     pattern-sinks:
       - pattern: $CUR.execute($X)
 

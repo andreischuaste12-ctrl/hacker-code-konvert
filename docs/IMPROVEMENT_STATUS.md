@@ -5,15 +5,15 @@ This is an evidence-based status, not a numerical security rating. Version 0.2.0
 | Request | Delivered or remaining dependency |
 | --- | --- |
 | 1. GitHub hardening | Ruleset JSON and maintainer instructions prepared; administrative API returned Forbidden, settings not applied |
-| 2. Close five Dependabot PRs | Blocked by GitHub API access; no PR is reported closed without verification |
+| 2. Close five Dependabot PRs | The latest external review reports the older PRs closed; this agent still lacks administrative API access to verify or change them |
 | 3. Version 0.2.0 | Package/changelog updated and wheel/sdist built; signed tag/release requires the maintainer's signing key |
 | 4. Rule visibility | IDs, count, SHA256 and explicit limitations in run/Markdown output |
 | 5. Filename staging | Neutral names; original path, escaped display and byte-hex roundtrip, including invalid UTF-8 |
-| 6. Python coverage | Twelve original classes, explicit-input taint rules for shell/SQL, vulnerable/safe fixtures and per-rule metrics |
-| 7. Gitleaks | Sandboxed directory-only adapter, controlled config/empty ignore, redaction and real-binary integration test |
-| 8. OSV | Offline lockfile-only adapter, explicit read-only database, no resolution, synthetic database integration test |
+| 6. Python coverage | Twelve original classes, expanded framework/environment taint sources and shell sinks, nonsecurity-hash exclusions, positive/negative corpus |
+| 7. Gitleaks | Sandboxed directory-only adapter, pinned vendor defaults plus controlled extension/empty ignore, redaction, seven-format corpus |
+| 8. OSV | Offline fixed requirements/manifests/lockfiles, archive SHA256 and verified freshness metadata, no resolution, synthetic database tests |
 | 9. SARIF | Local SARIF 2.1.0 output, OASIS schema validation |
-| 10. Seccomp | Architecture-aware libseccomp BPF with network-domain and dangerous-syscall restrictions |
+| 10. Seccomp | Architecture-aware seccomp, nested-userns prevention, modern mount/io_uring and VSOCK/KEY restrictions, real sandbox probes |
 | 11. Restrict /etc | Narrow read-only files including required CA bundle; shadow absent in sandbox probe |
 | 12. Single-pass staging | CLI inventories and captures file bytes in one descriptor-relative pass; scanners consume that private capture, not the changing repository |
 | 13. Root execution | Explicit run limitation when euid=0 |
@@ -24,7 +24,7 @@ This is an evidence-based status, not a numerical security rating. Version 0.2.0
 | 18. Property tests | Hypothesis tests redaction boundedness/idempotence, paths, Markdown and Git IDs |
 | 19. Reproducibility | Rule hash, Python/Bubblewrap/scanner versions and actual staged file hashes |
 | 20. Separate Semgrep | Independent hash-pinned scanner and development environments |
-| 21. Release pipeline | Manual signed-tag gate, wheel/sdist, SBOM, attestation, OIDC publishing; external trust/settings not configured automatically |
+| 21. Release pipeline | Read-only builds without persisted credentials; separate privileged attestation/release job and OIDC publishing; external trust/settings remain manual |
 | 22. CodeQL/Scorecard | Pinned workflows committed; hosted execution must be confirmed after push |
 | 23. Scanner advisory review | Existing five scanner-only exceptions retained; CI audits development separately and scanner weekly |
 | 24. Scope file | Explicit root, responsible party, reference, active window and hash; JSON/YAML subset, not legal authentication |

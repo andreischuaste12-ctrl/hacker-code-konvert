@@ -161,3 +161,45 @@ def test_standalone_python_runtime_mount_is_narrow(tmp_path: Path):
     executable = runtime / "bin/python3.13"
     executable.write_text("synthetic")
     assert runtime_mounts(executable) == [runtime]
+
+
+@pytest.mark.integration
+def test_dangerous_interfaces_cannot_be_reenabled(tmp_path: Path, require_sandbox):
+    staged = tmp_path / "target"
+    staged.mkdir()
+    rules = tmp_path / "rules"
+    rules.write_text("rules: []")
+    probe = """
+import ctypes, ctypes.util, errno, json, socket
+lib = ctypes.CDLL('libseccomp.so.2')
+lib.seccomp_syscall_resolve_name.argtypes = [ctypes.c_char_p]
+libc = ctypes.CDLL(None, use_errno=True)
+results = {}
+for name in ('unshare', 'setns', 'fsopen', 'fsconfig', 'fsmount', 'fspick', 'move_mount',
+             'open_tree', 'mount_setattr', 'pivot_root', 'io_uring_setup', 'io_uring_enter',
+             'io_uring_register', 'open_by_handle_at', 'kexec_load', 'kexec_file_load',
+             'init_module', 'finit_module', 'delete_module', 'clone3'):
+    number = lib.seccomp_syscall_resolve_name(name.encode())
+    if number >= 0:
+        ctypes.set_errno(0)
+        ret = libc.syscall(number, 0, 0, 0, 0, 0, 0)
+        results[name] = [ret, ctypes.get_errno()]
+for domain in (15, 40):
+    try:
+        socket.socket(domain, socket.SOCK_STREAM).close()
+        results[str(domain)] = [0, 0]
+    except OSError as e:
+        results[str(domain)] = [-1, e.errno]
+print(json.dumps(results))
+"""
+    wrapped = build_bubblewrap_command(
+        [str(Path(sys.executable).resolve()), "-c", probe], staged_root=staged, rules_file=rules
+    )
+    result = run_limited(wrapped, timeout_seconds=15, memory_bytes=1024**3, output_bytes=100000)
+    assert result.returncode == 0, result.stderr
+    observed = json.loads(result.stdout)
+    for name, (returned, error) in observed.items():
+        import errno
+
+        assert returned == -1
+        assert error == (errno.ENOSYS if name == "clone3" else errno.EPERM), (name, error)

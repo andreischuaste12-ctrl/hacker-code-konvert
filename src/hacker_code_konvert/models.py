@@ -13,6 +13,7 @@ class SkippedEntry:
 
 @dataclass
 class Inventory:
+    incomplete: bool = False
     snapshot_root: Path | None = None
     snapshot_paths: dict[str, str] = field(default_factory=dict)
     regular_files: list[str] = field(default_factory=list)
@@ -45,6 +46,8 @@ class ScannerResult:
     # Files the scanner reported as analyzed, used to prove coverage; None when not applicable.
     files_scanned: int | None = None
     input_hashes: dict[str, str] = field(default_factory=dict)
+    database: dict[str, Any] = field(default_factory=dict)
+    limitations: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

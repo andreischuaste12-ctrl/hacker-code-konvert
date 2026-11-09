@@ -63,7 +63,18 @@ def bubblewrap_supported() -> bool:
         true_binary = shutil.which("true")
         if not true_binary:
             return False
-        command = [executable, "--unshare-all", "--cap-drop", "ALL", "--proc", "/proc", "--dev", "/dev"]
+        command = [
+            executable,
+            "--unshare-all",
+            "--unshare-user",
+            "--disable-userns",
+            "--cap-drop",
+            "ALL",
+            "--proc",
+            "/proc",
+            "--dev",
+            "/dev",
+        ]
         for system_path in ("/usr", "/bin", "/lib", "/lib64"):
             if Path(system_path).exists():
                 command.extend(["--ro-bind", system_path, system_path])
@@ -141,6 +152,8 @@ def build_bubblewrap_command(
     wrapped = [
         bwrap,
         "--unshare-all",
+        "--unshare-user",
+        "--disable-userns",
         "--cap-drop",
         "ALL",
         "--die-with-parent",

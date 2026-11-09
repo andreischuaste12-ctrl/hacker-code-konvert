@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -11,23 +12,13 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+from hacker_code_konvert.database import database_metadata, osv_severity
+from hacker_code_konvert.formats import dependency_file
 from hacker_code_konvert.inventory import _copy_regular_file
 from hacker_code_konvert.models import Inventory, ScannerResult
 from hacker_code_konvert.provenance import translate_paths
 from hacker_code_konvert.sandbox import build_bubblewrap_command, run_limited, sandbox_metadata
 from hacker_code_konvert.semgrep_adapter import _error_excerpt, normalize_semgrep
-
-LOCKFILES = {
-    "package-lock.json",
-    "yarn.lock",
-    "poetry.lock",
-    "Cargo.lock",
-    "go.sum",
-    "composer.lock",
-    "Gemfile.lock",
-    "pnpm-lock.yaml",
-    "Pipfile.lock",
-}
 
 
 def run_external(
@@ -40,6 +31,7 @@ def run_external(
     memory_bytes: int,
     output_bytes: int,
     max_file_bytes: int,
+    max_database_age_days: int = 30,
 ) -> ScannerResult:
     binary = shutil.which(name)
     if not binary:
@@ -54,7 +46,7 @@ def run_external(
     selected = (
         inventory.regular_files
         if name == "gitleaks"
-        else [path for path in inventory.manifests if Path(path).name in LOCKFILES]
+        else [path for path in inventory.manifests if dependency_file(path)]
     )
     if not selected:
         return ScannerResult(
@@ -73,18 +65,46 @@ def run_external(
     except (OSError, subprocess.SubprocessError):
         version = None
     try:
+        metadata, warnings = (
+            database_metadata(database, max_database_age_days)
+            if name == "osv-scanner" and database
+            else ({}, [])
+        )
+        severities = {}
         with tempfile.TemporaryDirectory(prefix="hck-external-") as temporary:
             stage = Path(temporary) / "target"
             stage.mkdir()
             mapping = {}
             for index, original in enumerate(selected):
                 # Preserve lockfile basename for parser selection, but isolate each in neutral directory.
+                basename = (
+                    "requirements.txt"
+                    if Path(original).name.startswith("requirements")
+                    else Path(original).name
+                )
                 neutral = (
-                    f"f{index:06d}/{Path(original).name}" if name == "osv-scanner" else f"f{index:06d}.txt"
+                    f"f{index:06d}/{basename}"
+                    if name == "osv-scanner"
+                    else f"f{index:06d}{Path(original).suffix or '.txt'}"
                 )
                 source_root = inventory.snapshot_root or root
                 source_relative = inventory.snapshot_paths[original] if inventory.snapshot_root else original
                 _copy_regular_file(source_root, source_relative, stage / neutral, max_file_bytes)
+                if name == "osv-scanner" and basename == "requirements.txt":
+                    for line in (stage / neutral).read_text().splitlines():
+                        value = line.split("#", 1)[0].strip()
+                        if (
+                            value
+                            and not value.startswith("--hash=")
+                            and not re.fullmatch(
+                                r"[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9_.!+-]+(?:\s+.*)?",
+                                value,
+                            )
+                        ):
+                            raise ValueError(
+                                "Requirements input must use fixed == versions; "
+                                "includes/options are unsupported"
+                            )
                 mapping[neutral] = original
             (stage / ".gitleaksignore").write_bytes(b"")
             config = Path(str(files("hacker_code_konvert").joinpath("data/gitleaks.toml")))
@@ -155,6 +175,7 @@ def run_external(
                 for group in payload["results"]:
                     for package in group["packages"]:
                         for vuln in package.get("vulnerabilities", []):
+                            severities[str(vuln["id"])] = osv_severity(vuln)
                             matches.append(
                                 {
                                     "check_id": str(vuln["id"]),
@@ -170,9 +191,14 @@ def run_external(
             for finding in findings:
                 finding["category"] = "secret" if name == "gitleaks" else "dependency"
                 finding["sources"][0]["name"] = name
+                finding["sources"][0]["version"] = version
+                if name == "osv-scanner":
+                    finding["severity"], finding["risk"] = severities[finding["sources"][0]["rule_id"]]
             return ScannerResult(
                 name=name,
                 version=version,
+                database=metadata,
+                limitations=warnings,
                 status="completed",
                 findings=findings,
                 sandbox=sandbox_metadata(),

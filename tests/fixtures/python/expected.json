@@ -17,7 +17,7 @@
       "path": "unsafe_pickle_bad.py"
     },
     {
-      "rule_id": "hck.python.weak-password-hash",
+      "rule_id": "hck.python.weak-hash",
       "path": "weak_password_hash_bad.py"
     },
     {

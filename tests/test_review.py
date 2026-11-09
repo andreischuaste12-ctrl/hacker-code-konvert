@@ -12,7 +12,7 @@ from hacker_code_konvert.semgrep_adapter import normalize_semgrep
 
 
 @pytest.fixture
-def signed(tmp_path: Path):
+def signed(tmp_path: Path, require_ssh_keygen):
     key = tmp_path / "key"
     subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
     finding = normalize_semgrep(

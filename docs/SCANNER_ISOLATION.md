@@ -58,7 +58,7 @@ Scanner stdout and stderr are written to bounded temporary files. Oversized, tim
 ## Known Limits
 
 - Files can still change concurrently between inventory and staging; each file is reopened without following symlinks and rechecked, but the MVP does not snapshot the filesystem.
-- No seccomp filter is applied, and no process-count limit is set (a per-user `RLIMIT_NPROC` could break unrelated processes). Isolation relies on namespaces, dropped capabilities, read-only mounts, and the resource limits above.
+- Seccomp is a tested denylist, not an exhaustive syscall allowlist. Nested user namespaces are disabled. Optional process-count limits require a delegated cgroup; user-wide RLIMIT_NPROC is never used.
 - The `controls` recorded in `run.json` describe the isolation that was actually started (`scanner_isolation`); runs that never started a sandbox record `not_used` or `not_applicable`.
 - Bubblewrap depends on Linux kernel namespace support and local security policy.
 - The initial rule pack is intentionally small and does not provide comprehensive Python coverage.
@@ -87,3 +87,18 @@ Optional process limits use a delegated cgroup-v2 parent via HCK_CGROUP_PARENT a
 unwritable delegation fails closed. Without delegation the report says the count limit is absent;
 RLIMIT_NPROC is never used because it affects the whole user. This environment has no writable delegated
 cgroup, so kernel-level PID-limit integration requires a host that provides one.
+
+## Audit follow-up: namespace and mount interfaces
+
+Bubblewrap requires explicit user namespace isolation and disables creation of nested user namespaces.
+The seccomp denylist also blocks unshare/setns, clone with CLONE_NEWUSER and clone3 (ENOSYS so runtime
+thread creation can fall back). It covers modern mount APIs, io_uring, module/kexec interfaces and AF_KEY/
+AF_VSOCK, in addition to the earlier network domains and dangerous syscalls. Integration probes execute
+these calls inside the real sandbox and check denial. This remains a denylist, not a claim that every
+future kernel interface is covered. Unsupported Bubblewrap versions fail closed.
+
+The capture uses an explicit DFS stack (no Python recursion), a depth limit of 64 and a 256 MiB total
+capture limit by default. Both are configurable through `--max-depth` and `--max-total-bytes`. Reaching
+limits is recorded as incomplete coverage. Semgrep captures source files, OSV captures dependency inputs,
+Gitleaks captures bounded regular files, and inventory mode captures no content. The selected capture may
+be copied once more into scanner staging, so allow roughly twice the configured total capture ceiling.

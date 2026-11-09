@@ -38,7 +38,7 @@ Scanner status:
 
 - **Semgrep 1.184.0:** implemented for Python through bundled local rules and networkless Bubblewrap isolation.
 - **OSV-Scanner 2.7.1:** isolated lockfile analysis using an explicitly prepared offline database.
-- **Gitleaks 8.30.1:** isolated directory-only secret detection with controlled rules, empty ignore file and redacted output.
+- **Gitleaks 8.30.1:** isolated directory-only secret detection with vendor defaults plus a controlled custom rule, empty ignore file and redacted output.
 
 Scanner output will be treated as evidence for review, not as a confirmed vulnerability by itself.
 

@@ -34,3 +34,9 @@ def require_sandbox() -> None:
 def unavailable():
     """Report a missing integration prerequisite discovered inside a test."""
     return _unavailable
+
+
+@pytest.fixture
+def require_ssh_keygen() -> None:
+    if not shutil.which("ssh-keygen"):
+        _unavailable("openssh-client (ssh-keygen) is required")

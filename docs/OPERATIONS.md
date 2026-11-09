@@ -86,3 +86,31 @@ artifacts and publishes through OIDC. No signing key or PyPI credential is embed
 
 CodeQL and Scorecard workflows are committed. Their execution and security-event upload still depend on
 repository plan, permissions and settings. Scorecard publishes repository security metadata to OpenSSF.
+
+## Audit follow-up controls
+
+Gitleaks extends the vendor's default rules in the pinned binary plus the project rule. The configuration
+hash identifies the extension, and the binary version identifies vendor defaults; the report does not
+pretend the one custom rule is the complete vendor rule count. Neutral filenames preserve extensions.
+Filename-dependent vendor rules may still differ from scanning an original directory layout; tests cover
+seven synthetic formats and cannot prove universal secret detection.
+
+OSV accepts `requirements*.txt` with fixed `==` versions, `go.mod`, `pom.xml`, `gradle.lockfile` and the
+supported lockfiles. Requirements includes, options and unresolved version ranges are rejected explicitly.
+Archive SHA256 values, an aggregate identity, retrieval timestamps and database age are recorded. Missing
+provenance produces an explicit freshness limitation, a digest mismatch fails the scan, and the default
+staleness warning threshold is configurable with `--max-database-age-days` (30). These metadata records
+are audit evidence, not independently authenticated signatures on the upstream database.
+
+CVSS 3.x vectors and numeric scores determine OSV severity; database-specific severity labels are a
+fallback. Unsupported/missing scores are marked unassessed and require human assessment, rather than
+silently receiving medium severity. SARIF uses the package version and includes rule descriptions.
+
+The release build job has only read access and checkout credentials are not persisted. Artifact
+attestation/release creation uses a separate privileged job which does not install project dependencies
+or execute downloaded artifacts. Configure the public allowed-signers variable at repository level for
+read-only tag verification in the build job.
+
+The sample main ruleset permits administrators to bypass requirements **only through pull requests**.
+This prevents the sole maintainer from being locked out by an impossible self-approval requirement while
+keeping direct-push/force-push restrictions. Review that tradeoff before applying the template.

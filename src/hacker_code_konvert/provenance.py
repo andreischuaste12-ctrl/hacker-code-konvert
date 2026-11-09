@@ -5,6 +5,8 @@ import re
 from importlib.resources import files
 from typing import Any
 
+from hacker_code_konvert.textsafety import has_unsafe_characters
+
 
 def rules_metadata(scanner: str = "semgrep") -> dict[str, Any]:
     if scanner == "osv-scanner":
@@ -13,7 +15,13 @@ def rules_metadata(scanner: str = "semgrep") -> dict[str, Any]:
     data = files("hacker_code_konvert").joinpath(f"data/{filename}").read_bytes()
     pattern = r'^id = "(.+)"$' if scanner == "gitleaks" else r"^  - id: (.+)$"
     ids = re.findall(pattern, data.decode(), re.MULTILINE)
-    return {"ids": ids, "count": len(ids), "sha256": hashlib.sha256(data).hexdigest()}
+    return {
+        "ids": ids,
+        "count": None if scanner == "gitleaks" else len(ids),
+        "custom_count": len(ids),
+        "extends_vendor_defaults": scanner == "gitleaks",
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
 
 
 def translate_paths(findings: list[dict[str, Any]], mapping: dict[str, str]) -> None:
@@ -28,8 +36,17 @@ def translate_paths(findings: list[dict[str, Any]], mapping: dict[str, str]) -> 
         location["staged_path"] = neutral
         location["original_path"] = original
         location["original_path_bytes_hex"] = original.encode("utf-8", "surrogateescape").hex()
-        location["display_path"] = ascii(original)[1:-1]
-        if original.isascii() and "\\" not in original and all(32 <= ord(c) < 127 for c in original):
+        location["display_path"] = (
+            original
+            if original.isprintable() and not has_unsafe_characters(original)
+            else ascii(original)[1:-1]
+        )
+        if (
+            original.isprintable()
+            and "\\" not in original
+            and not has_unsafe_characters(original)
+            and not re.match(r"^[A-Za-z]:", original)
+        ):
             location["path"] = original
         digest = hashlib.sha256(
             f"{finding['sources'][0]['rule_id']}\0{location['original_path_bytes_hex']}\0"

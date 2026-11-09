@@ -82,6 +82,12 @@ def _no_findings_notice(run: dict[str, Any]) -> str:
 
 def render_markdown(run: dict[str, Any], findings: list[dict[str, Any]]) -> str:
     scanner = run["scanner"]
+    rule_data = run.get("rules_applied") or {}
+    rule_count = (
+        "vendor defaults plus custom rules"
+        if rule_data.get("extends_vendor_defaults")
+        else rule_data.get("count", 0)
+    )
     lines = [
         "# Hacker Code Konvert Report",
         "",
@@ -107,7 +113,9 @@ def render_markdown(run: dict[str, Any], findings: list[dict[str, Any]]) -> str:
         "## Coverage",
         "",
         *_coverage_lines(run),
-        f"- Rules applied: {_markdown_text(run.get('rules_applied') or 'none')}",
+        f"- Rules applied: {_markdown_text(rule_count)}",
+        f"- Custom/bundled rule IDs: {_markdown_text(', '.join(rule_data.get('ids', [])))}",
+        f"- Rule configuration SHA256: {_markdown_text(rule_data.get('sha256', 'none'))}",
         "",
         "## Results",
         "",

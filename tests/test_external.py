@@ -84,3 +84,57 @@ def test_missing_external_binary_fails_closed(tmp_path: Path, monkeypatch):
 def test_osv_requires_explicit_database(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("hacker_code_konvert.external.shutil.which", lambda _: "/usr/bin/true")
     assert run("osv-scanner", tmp_path).status == "unavailable"
+
+
+@pytest.mark.integration
+def test_vendor_secret_rules_cover_seven_synthetic_formats(tmp_path: Path, require_sandbox):
+    if not shutil.which("gitleaks"):
+        pytest.fail("Gitleaks binary required for security regression")
+    import hashlib
+
+    token = hashlib.sha256(b"HCK-PUBLIC-SYNTHETIC-NOT-A-CREDENTIAL").hexdigest()
+    samples = {
+        "aws.env": 'aws_access_key_id = "'
+        + "AKIA"
+        + __import__("base64").b32encode(hashlib.sha256(b"public synthetic id").digest()).decode()[:16]
+        + '"',
+        "github.env": 'GITHUB_TOKEN="' + "ghp_" + token[:36] + '"',
+        "stripe.env": 'STRIPE_KEY="' + "sk_live_" + token[:32] + '"',
+        "slack.env": 'SLACK_TOKEN="' + "xoxb-" + "123456789012-987654321098-" + token[:24] + '"',
+        "key.pem": "-----BEGIN PRIVATE KEY-----\n" + token * 3 + "\n-----END PRIVATE KEY-----",
+        "settings.json": json.dumps({"api_key": token}),
+        "generic.env": 'PASSWORD="' + token + '"',
+    }
+    for name, value in samples.items():
+        (tmp_path / name).write_text(value)
+    result = run("gitleaks", tmp_path)
+    assert result.status == "completed", result.errors
+    observed = {f["location"]["original_path"] for f in result.findings}
+    assert observed == set(samples)
+    for secret in (token, "ghp_" + token[:36], "sk_live_" + token[:32]):
+        assert secret not in json.dumps(result.to_dict())
+
+
+@pytest.mark.integration
+def test_osv_accepts_fixed_python_requirements_and_maps_cvss(tmp_path: Path, require_sandbox):
+    if not shutil.which("osv-scanner"):
+        pytest.fail("OSV binary required for security regression")
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "requirements-dev.txt").write_text("hck-synthetic==1.0.0\n")
+    database = tmp_path / "db"
+    ecosystem = database / "osv-scalibr/PyPI"
+    ecosystem.mkdir(parents=True)
+    vuln = {
+        "id": "HCK-PYPI-TEST",
+        "modified": "2026-01-01T00:00:00Z",
+        "severity": [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}],
+        "affected": [{"package": {"name": "hck-synthetic", "ecosystem": "PyPI"}, "versions": ["1.0.0"]}],
+    }
+    with zipfile.ZipFile(ecosystem / "all.zip", "w") as archive:
+        archive.writestr("HCK-PYPI-TEST.json", json.dumps(vuln))
+    result = run("osv-scanner", root, database)
+    assert result.status == "completed", result.errors
+    assert result.findings[0]["severity"] == "critical"
+    assert result.findings[0]["location"]["path"] == "requirements-dev.txt"
+    assert result.database["archives"][0]["sha256"]
