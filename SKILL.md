@@ -134,3 +134,13 @@ The complete gate definitions and profile-specific requirements are in `docs/VER
 The MVP covers local, static analysis of repositories through Semgrep, OSV-Scanner, and Gitleaks, followed by normalization, contextual triage, and Markdown or SARIF reporting.
 
 The MVP excludes active scanning of deployed applications, automated disclosure, autonomous patch publication, malware analysis, and exploit development.
+
+## Version 0.2.0 operational requirements
+
+Use `docs/OPERATIONS.md` for isolated Python/PHP, directory-only Gitleaks and offline OSV execution.
+Report the applied rule count and coverage gaps. Preserve filename identity through the neutral staging
+mapping. Validate signed human reviews against an operator-owned allowed-signers file before drafting
+disclosure. `hck report draft` only creates a private local document; transmission requires a separate
+instruction. The optional `examples/agent-settings.json` denies direct scanner/network tools for hosts
+that support that permissions format; `allowed-tools` alone is not a security boundary. Evaluate the
+scenarios in `examples/skill-evaluations.json` when changing agent behavior.

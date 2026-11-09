@@ -1,0 +1,7 @@
+{
+  "repository": "/absolute/path/to/authorized/repository",
+  "responsible": "Project owner",
+  "authorization_reference": "Customer contract or written approval reference",
+  "valid_from": "2026-01-01T00:00:00+00:00",
+  "valid_until": "2026-12-31T23:59:59+00:00"
+}

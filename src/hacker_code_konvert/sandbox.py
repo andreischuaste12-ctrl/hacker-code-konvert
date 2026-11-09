@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 # Directories mounted read-only so the scanner runtime can load libraries and configuration.
-SYSTEM_MOUNTS = ("/usr", "/bin", "/lib", "/lib64", "/opt", "/etc")
+SYSTEM_MOUNTS = ("/usr", "/bin", "/lib", "/lib64", "/opt")
 # Locations from which a scanner executable needs no additional mount.
 SYSTEM_EXECUTABLE_BASES = ("/usr", "/bin", "/opt")
 
@@ -122,6 +122,9 @@ def runtime_mounts(executable: Path) -> list[Path]:
         if interpreter_home is not None and not _is_under(interpreter_home, SYSTEM_EXECUTABLE_BASES):
             mounts.append(_require_narrow_mount(interpreter_home.parent))
         return mounts
+    if executable.name.startswith("python") and executable.parent.name == "bin":
+        if any((environment_root / "lib").glob("python*/os.py")):
+            return [_require_narrow_mount(environment_root)]
     raise SandboxUnavailable(
         "the scanner must be installed under /usr or /opt, or inside a Python virtual environment; "
         f"refusing to expose the directory around {executable}"
@@ -167,6 +170,18 @@ def build_bubblewrap_command(
         if path.exists():
             wrapped.extend(["--ro-bind", system_path, system_path])
 
+    for name in (
+        "ld.so.cache",
+        "passwd",
+        "group",
+        "nsswitch.conf",
+        "localtime",
+        "ssl/certs/ca-certificates.crt",
+    ):
+        source = Path("/etc") / name
+        if source.exists():
+            wrapped.extend(["--ro-bind", str(source.resolve()), f"/etc/{name}"])
+
     executable = Path(command[0]).resolve(strict=True)
     for mount in runtime_mounts(executable):
         wrapped.extend(["--ro-bind", str(mount), str(mount)])
@@ -184,11 +199,14 @@ def sandbox_metadata() -> dict[str, Any]:
         "network": "disabled",
         "capabilities": "dropped",
         "target": "read-only",
-        "seccomp": "not applied",
+        "seccomp": "libseccomp denylist; network sockets and dangerous kernel interfaces denied",
+        "process_limit": "delegated cgroup pids.max"
+        if os.environ.get("HCK_CGROUP_PARENT")
+        else "not enforced; dedicated cgroup recommended",
     }
 
 
-def _set_limits(memory_bytes: int, cpu_seconds: int, output_bytes: int) -> None:
+def _set_limits(memory_bytes: int, cpu_seconds: int, output_bytes: int) -> None:  # pragma: no cover
     resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
     resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
     resource.setrlimit(resource.RLIMIT_FSIZE, (output_bytes, output_bytes))
@@ -211,9 +229,31 @@ def run_limited(
         "PATH": "/usr/local/bin:/usr/bin:/bin",
         "SEMGREP_SEND_METRICS": "off",
         "SEMGREP_ENABLE_VERSION_CHECK": "0",
+        "GOMEMLIMIT": "512MiB",
+        "GOMAXPROCS": "1",
     }
     started = time.monotonic()
-    with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
+    from contextlib import ExitStack
+
+    from hacker_code_konvert.cgroups import delegated_tasks
+    from hacker_code_konvert.seccomp import filter_file
+
+    with ExitStack() as resources:
+        cgroup_procs = resources.enter_context(delegated_tasks())
+
+        def child_limits() -> None:  # pragma: no cover
+            if cgroup_procs is not None:
+                cgroup_procs.write_text(str(os.getpid()))
+            _set_limits(memory_bytes, timeout_seconds, output_bytes)
+
+        inherited: tuple[int, ...] = ()
+        if Path(command[0]).name == "bwrap":
+            bpf = resources.enter_context(filter_file())
+            index = command.index("--")
+            command = command[:index] + ["--seccomp", str(bpf.fileno())] + command[index:]
+            inherited = (bpf.fileno(),)
+        stdout_file = resources.enter_context(tempfile.TemporaryFile())
+        stderr_file = resources.enter_context(tempfile.TemporaryFile())
         process = subprocess.Popen(
             command,
             stdin=subprocess.DEVNULL,
@@ -222,8 +262,9 @@ def run_limited(
             env=environment,
             cwd="/",
             close_fds=True,
+            pass_fds=inherited,
             start_new_session=True,
-            preexec_fn=lambda: _set_limits(memory_bytes, timeout_seconds, output_bytes),
+            preexec_fn=child_limits,
         )
         timed_out = False
         try:

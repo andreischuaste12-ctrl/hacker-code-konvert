@@ -109,6 +109,44 @@
     },
     "vulnerability_scan_performed": {
       "type": "boolean"
+    },
+    "rules_applied": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "python": {
+          "type": "string"
+        }
+      }
+    },
+    "authorization": {
+      "type": [
+        "object",
+        "null"
+      ]
     }
   }
 }

@@ -26,32 +26,99 @@
     "disclosure"
   ],
   "properties": {
-    "id": {"type": "string", "minLength": 1},
-    "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
-    "title": {"type": "string", "minLength": 1},
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
     "status": {
-      "enum": ["candidate", "validated", "false_positive", "accepted_risk"]
+      "enum": [
+        "candidate",
+        "validated",
+        "false_positive",
+        "accepted_risk"
+      ]
     },
     "analysis_profile": {
-      "enum": ["repository", "differential", "dependency", "ecommerce", "active"]
+      "enum": [
+        "repository",
+        "differential",
+        "dependency",
+        "ecommerce",
+        "active"
+      ]
     },
     "severity": {
-      "enum": ["informational", "low", "medium", "high", "critical"]
+      "enum": [
+        "informational",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
     },
-    "confidence": {"enum": ["low", "medium", "high"]},
-    "confidence_rationale": {"type": "string", "minLength": 1},
-    "category": {"type": "string", "minLength": 1},
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "confidence_rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1
+    },
     "location": {
       "type": "object",
-      "required": ["path"],
+      "required": [
+        "path"
+      ],
       "properties": {
-        "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
-        "start_line": {"type": "integer", "minimum": 1},
-        "end_line": {"type": "integer", "minimum": 1}
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        },
+        "start_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "original_path": {
+          "type": "string"
+        },
+        "display_path": {
+          "type": "string"
+        },
+        "original_path_bytes_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{2})+$"
+        },
+        "staged_path": {
+          "type": "string"
+        }
       }
     },
-    "threat_model": {"type": "object"},
-    "evidence": {"type": "object"},
+    "threat_model": {
+      "type": "object"
+    },
+    "evidence": {
+      "type": "object"
+    },
     "validation": {
       "type": "object",
       "required": [
@@ -66,41 +133,142 @@
         "human_review"
       ],
       "additionalProperties": {
-        "enum": ["pass", "fail", "unresolved", "pending", "not_applicable"]
+        "enum": [
+          "pass",
+          "fail",
+          "unresolved",
+          "pending",
+          "not_applicable"
+        ]
       }
     },
-    "impact": {"type": "string", "minLength": 1},
+    "impact": {
+      "type": "string",
+      "minLength": 1
+    },
     "reproduction": {
       "type": "object",
-      "required": ["performed", "reason", "steps"],
+      "required": [
+        "performed",
+        "reason",
+        "steps"
+      ],
       "properties": {
-        "performed": {"type": "boolean"},
-        "reason": {"type": "string", "minLength": 1},
-        "steps": {"type": "array", "items": {"type": "string"}}
+        "performed": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
-    "remediation": {"type": "object"},
-    "sources": {"type": "array", "minItems": 1, "items": {"type": "object"}},
-    "review": {"type": "object"},
-    "disclosure": {"type": "object"},
-    "taxonomy": {"type": "object"},
-    "risk": {"type": "object"}
+    "remediation": {
+      "type": "object"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object"
+      }
+    },
+    "review": {
+      "type": "object"
+    },
+    "disclosure": {
+      "type": "object"
+    },
+    "taxonomy": {
+      "type": "object"
+    },
+    "risk": {
+      "type": "object"
+    }
   },
   "allOf": [
     {
-      "if": {"properties": {"status": {"const": "validated"}}, "required": ["status"]},
+      "if": {
+        "properties": {
+          "status": {
+            "const": "validated"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
       "then": {
         "properties": {
-          "validation": {"additionalProperties": {"const": "pass"}},
-          "review": {"type": "object", "required": ["human_reviewed", "reviewer", "reviewed_at"], "properties": {"human_reviewed": {"const": true}, "reviewer": {"type": "string", "minLength": 1}, "reviewed_at": {"type": "string", "minLength": 1}}}
+          "validation": {
+            "additionalProperties": {
+              "const": "pass"
+            }
+          },
+          "review": {
+            "type": "object",
+            "required": [
+              "human_reviewed",
+              "reviewer",
+              "reviewed_at"
+            ],
+            "properties": {
+              "human_reviewed": {
+                "const": true
+              },
+              "reviewer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reviewed_at": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       }
     },
     {
-      "if": {"properties": {"status": {"const": "accepted_risk"}}, "required": ["status"]},
+      "if": {
+        "properties": {
+          "status": {
+            "const": "accepted_risk"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
       "then": {
         "properties": {
-          "review": {"type": "object", "required": ["human_reviewed", "reviewer", "reviewed_at"], "properties": {"human_reviewed": {"const": true}, "reviewer": {"type": "string", "minLength": 1}, "reviewed_at": {"type": "string", "minLength": 1}}}
+          "review": {
+            "type": "object",
+            "required": [
+              "human_reviewed",
+              "reviewer",
+              "reviewed_at"
+            ],
+            "properties": {
+              "human_reviewed": {
+                "const": true
+              },
+              "reviewer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reviewed_at": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       }
     }

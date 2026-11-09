@@ -21,7 +21,7 @@ Offensive payloads, unauthorized testing workflows, real credentials, personal d
 
 ## Development Workflow
 
-The MVP uses Python 3.12, pytest, Ruff, Semgrep 1.184.0, and Bubblewrap on Linux.
+The MVP uses Python 3.12/3.13, pytest, Ruff, Semgrep 1.184.0, and Bubblewrap on Linux.
 
 ```bash
 python3 -m venv .venv
@@ -29,7 +29,8 @@ python3 -m venv .venv
 python -m pip install --require-hashes -r requirements-dev.txt
 python -m pip install --no-deps --no-build-isolation -e .
 ruff check src scripts tests
-pytest -q
+mypy --strict src
+pytest -q --cov=hacker_code_konvert --cov-branch --cov-fail-under=95
 ```
 
 For each contribution:
@@ -77,3 +78,5 @@ Maintainers may request changes when evidence, scope, licensing, or safe handlin
 By submitting a contribution, you agree that it may be distributed under the [Apache License 2.0](LICENSE).
 
 Do not copy text, rules, or source code from third-party projects unless the license is compatible and the required attribution is included. Ideas and methodologies may be referenced, but adapted content must preserve its license obligations.
+
+Install the scanner in its own virtual environment using `requirements-semgrep.txt`; see [operations](docs/OPERATIONS.md).

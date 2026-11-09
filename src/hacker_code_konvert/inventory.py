@@ -41,10 +41,10 @@ MANIFEST_NAMES = {
     "Gemfile.lock",
 }
 
-SCANNABLE_SUFFIXES = {".py"}
+SCANNABLE_SUFFIXES = {".py", ".php"}
 LFS_HEADER = b"version https://git-lfs.github.com/spec/v1"
 # Files the CLI itself writes; an output directory may already contain only these.
-ARTIFACT_NAMES = frozenset({"run.json", "findings.json", "report.md"})
+ARTIFACT_NAMES = frozenset({"run.json", "findings.json", "report.md", "results.sarif"})
 # Semgrep falls back to built-in ignore patterns (such as tests/ and test/) when the scanned
 # root has no .semgrepignore. The staged tree always carries this tool-owned, empty file so
 # repository content can never be skipped silently and no built-in default applies.
@@ -99,7 +99,13 @@ def _probe_file(path: Path) -> str:
         return "unreadable"
 
 
-def build_inventory(root: Path, *, max_file_bytes: int = 1_000_000, max_files: int = 10_000) -> Inventory:
+def build_inventory(
+    root: Path, *, max_file_bytes: int = 1_000_000, max_files: int = 10_000, snapshot: Path | None = None
+) -> Inventory:
+    if snapshot is not None:
+        from hacker_code_konvert.snapshot import capture
+
+        return capture(root, snapshot, max_file_bytes, max_files)
     inventory = Inventory()
     pending = [root]
 
@@ -170,6 +176,7 @@ def build_inventory(root: Path, *, max_file_bytes: int = 1_000_000, max_files: i
             if probe == "unreadable":
                 inventory.skipped.append(SkippedEntry(relative, "file not readable by the analyzer"))
                 continue
+            inventory.regular_files.append(relative)
             if path.suffix.lower() in SCANNABLE_SUFFIXES:
                 inventory.scan_files.append(relative)
 
@@ -193,15 +200,22 @@ def _opened_path_is_within(descriptor: int, root: Path) -> bool:
 
 
 def _copy_regular_file(root: Path, relative: str, target: Path, max_file_bytes: int) -> None:
-    source = root / relative
-    resolved = source.resolve(strict=True)
-    if not resolved.is_relative_to(root):
-        raise ScopeError(f"file escaped repository during staging: {relative}")
-    # O_NOFOLLOW makes a path-swap to a symlink after the inventory fail instead of being followed.
+    parts = Path(relative).parts
+    if not parts or any(part in ("..", ".") for part in parts) or Path(relative).is_absolute():
+        raise ScopeError("invalid staging path")
+    directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        descriptor = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        for part in parts[:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        descriptor = os.open(
+            parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=directory
+        )
     except OSError as error:
-        raise ScopeError(f"file could not be opened safely during staging: {relative}") from error
+        raise ScopeError(f"file could not be opened safely during staging: {relative!r}") from error
+    finally:
+        os.close(directory)
     with os.fdopen(descriptor, "rb", closefd=True) as stream:
         opened = os.fstat(stream.fileno())
         if not stat.S_ISREG(opened.st_mode):
@@ -236,3 +250,19 @@ def stage_scan_files(root: Path, inventory: Inventory, destination: Path, *, max
         for name in subdirectories:
             (Path(directory) / name).chmod(0o500)
     destination.chmod(0o500)
+
+
+def stage_neutral_files(
+    root: Path, inventory: Inventory, destination: Path, *, max_file_bytes: int
+) -> dict[str, str]:
+    destination.mkdir(mode=0o700, parents=True, exist_ok=False)
+    mapping = {}
+    for index, relative in enumerate(inventory.scan_files):
+        name = f"f{index:06d}{Path(relative).suffix.lower()}"
+        source_root = inventory.snapshot_root or root
+        source_relative = inventory.snapshot_paths[relative] if inventory.snapshot_root else relative
+        _copy_regular_file(source_root, source_relative, destination / name, max_file_bytes)
+        mapping[name] = relative
+    (destination / SEMGREP_IGNORE_NAME).write_bytes(b"")
+    destination.chmod(0o500)
+    return mapping

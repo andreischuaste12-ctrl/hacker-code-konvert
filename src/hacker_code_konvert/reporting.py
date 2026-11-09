@@ -64,7 +64,7 @@ def _coverage_lines(run: dict[str, Any]) -> list[str]:
 
 
 def _no_findings_notice(run: dict[str, Any]) -> str:
-    if not run.get("vulnerability_scan_performed", False):
+    if run["scanner"]["name"] == "inventory":
         return (
             "No vulnerability scanner was run in this mode. This report contains an inventory only, "
             "and the absence of findings has no security meaning."
@@ -76,7 +76,7 @@ def _no_findings_notice(run: dict[str, Any]) -> str:
         )
     return (
         "No findings were identified by the checks that completed. "
-        "This does not prove that the project is secure."
+        "Only the listed rule classes were checked. This does not prove that the project is secure."
     )
 
 
@@ -107,6 +107,7 @@ def render_markdown(run: dict[str, Any], findings: list[dict[str, Any]]) -> str:
         "## Coverage",
         "",
         *_coverage_lines(run),
+        f"- Rules applied: {_markdown_text(run.get('rules_applied') or 'none')}",
         "",
         "## Results",
         "",
@@ -126,7 +127,7 @@ def render_markdown(run: dict[str, Any], findings: list[dict[str, Any]]) -> str:
                 f"- **Confidence:** `{_markdown_code(finding['confidence'])}`",
                 f"- **Confidence rationale:** {_markdown_text(finding['confidence_rationale'])}",
                 (
-                    f"- **Location:** `{_markdown_code(location['path'])}:"
+                    f"- **Location:** `{_markdown_code(location.get('display_path', location['path']))}:"
                     f"{_markdown_code(location.get('start_line', 1))}`"
                 ),
                 f"- **Evidence:** {_markdown_text(finding['evidence']['summary'])}",
@@ -156,4 +157,7 @@ def write_artifacts(output: Path, run: dict[str, Any], findings: list[dict[str, 
         output.chmod(0o700)
     write_json(output / "findings.json", {"schema_version": "1.0", "findings": findings})
     _atomic_write(output / "report.md", render_markdown(redact(run), redact(findings)))
+    from hacker_code_konvert.sarif import render_sarif
+
+    write_json(output / "results.sarif", render_sarif(run, findings))
     write_json(output / "run.json", run)

@@ -62,3 +62,28 @@ Scanner stdout and stderr are written to bounded temporary files. Oversized, tim
 - The `controls` recorded in `run.json` describe the isolation that was actually started (`scanner_isolation`); runs that never started a sandbox record `not_used` or `not_applicable`.
 - Bubblewrap depends on Linux kernel namespace support and local security policy.
 - The initial rule pack is intentionally small and does not provide comprehensive Python coverage.
+
+## Version 0.2.0 controls
+
+The scanner receives only neutral filenames. Findings preserve the original path, a portable escaped
+display path and the original Linux filename bytes as hex. Arbitrary filenames do not become scanner
+arguments or rules. Gitleaks uses directory mode only, so Git history, textconv and external diff drivers
+are never invoked. OSV sees only selected lockfiles and a read-only operator-provided database.
+
+Seccomp is installed with Bubblewrap after namespace setup and fails closed if libseccomp is missing.
+It denies ptrace, mount/umount, bpf, userfaultfd, key management, perf_event_open and INET/INET6/NETLINK/
+PACKET socket domains; Unix sockets remain available for runtime IPC. `/etc` is no longer mounted as a
+whole: only loader cache, user/group lookup files, localtime and the CA bundle are exposed read-only.
+`/etc/shadow` is absent. The tests inspect Seccomp mode 2, capabilities, network and target writes.
+
+The CLI inventories and captures regular files in one descriptor-relative pass. Each directory is
+opened relative to its parent with O_NOFOLLOW, and file bytes are read through the descriptor used for
+classification. Subsequent scanner staging reads only the private captured copy. File hashes identify
+those exact bytes. This is a file-level capture, not an atomic multi-file filesystem snapshot: a writer
+can still modify an already-open file in place. Use an immutable checkout for reproducible analyses.
+
+Optional process limits use a delegated cgroup-v2 parent via HCK_CGROUP_PARENT and HCK_TASKS_MAX (default
+64). A per-run child cgroup is created, pids.max is set and the scanner joins before execution. Invalid or
+unwritable delegation fails closed. Without delegation the report says the count limit is absent;
+RLIMIT_NPROC is never used because it affects the whole user. This environment has no writable delegated
+cgroup, so kernel-level PID-limit integration requires a host that provides one.

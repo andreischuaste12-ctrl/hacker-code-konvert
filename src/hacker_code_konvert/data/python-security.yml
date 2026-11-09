@@ -27,3 +27,129 @@ rules:
       - pattern: yaml.load(...)
       - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
       - pattern-not: yaml.load(..., Loader=SafeLoader, ...)
+
+  - id: hck.python.dangerous-exec
+    languages: [python]
+    severity: WARNING
+    message: Potential dangerous-exec; contextual review is required.
+    pattern: exec(...)
+
+  - id: hck.python.unsafe-pickle
+    languages: [python]
+    severity: WARNING
+    message: Potential unsafe-pickle; contextual review is required.
+    pattern: pickle.loads(...)
+
+  - id: hck.python.weak-password-hash
+    languages: [python]
+    severity: WARNING
+    message: Potential weak-password-hash; contextual review is required.
+    pattern: hashlib.md5(...)
+
+  - id: hck.python.tls-verification-disabled
+    languages: [python]
+    severity: WARNING
+    message: Potential tls-verification-disabled; contextual review is required.
+    pattern: requests.get(..., verify=False, ...)
+
+  - id: hck.python.insecure-tempfile
+    languages: [python]
+    severity: WARNING
+    message: Potential insecure-tempfile; contextual review is required.
+    pattern: tempfile.mktemp(...)
+
+  - id: hck.python.assert-authorization
+    languages: [python]
+    severity: WARNING
+    message: Potential assert-authorization; contextual review is required.
+    pattern: assert $USER.is_admin
+
+  - id: hck.python.shell-system
+    languages: [python]
+    severity: ERROR
+    message: Untrusted input reaches a sensitive sink; contextual review is required.
+    mode: taint
+    pattern-sources:
+      - pattern: input(...)
+      - pattern: sys.argv[$I]
+      - pattern: request.args.get(...)
+      - pattern: request.args[$KEY]
+    pattern-sinks:
+      - pattern: os.system($X)
+
+  - id: hck.python.shell-subprocess
+    languages: [python]
+    severity: ERROR
+    message: Untrusted input reaches a sensitive sink; contextual review is required.
+    mode: taint
+    pattern-sources:
+      - pattern: input(...)
+      - pattern: sys.argv[$I]
+      - pattern: request.args.get(...)
+      - pattern: request.args[$KEY]
+    pattern-sinks:
+      - pattern: subprocess.run($X, ..., shell=True, ...)
+      - pattern: subprocess.call($X, ..., shell=True, ...)
+
+  - id: hck.python.sql-injection
+    languages: [python]
+    severity: ERROR
+    message: Untrusted input reaches a sensitive sink; contextual review is required.
+    mode: taint
+    pattern-sources:
+      - pattern: input(...)
+      - pattern: sys.argv[$I]
+      - pattern: request.args.get(...)
+      - pattern: request.args[$KEY]
+    pattern-sinks:
+      - pattern: $CUR.execute($X)
+
+  - id: hck.python.hardcoded-credential
+    languages: [python]
+    severity: WARNING
+    message: A credential-like variable contains a literal; review and rotate if real.
+    patterns:
+      - pattern: $NAME = $VALUE
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i)^(password|api_key|secret_key|access_token)$
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: ^["'][^"']{8,}["']$
+
+  - id: hck.php.public-ajax-handler
+    languages: [php]
+    severity: WARNING
+    message: Public AJAX registration requires nonce, authorization and rate-limit review.
+    patterns:
+      - pattern: add_action($HOOK, ...);
+      - metavariable-regex:
+          metavariable: $HOOK
+          regex: .wp_ajax_nopriv_.*
+
+  - id: hck.php.wpdb-injection
+    languages: [php]
+    severity: ERROR
+    message: Request data reaches a WordPress SQL query; contextual review is required.
+    mode: taint
+    pattern-sources:
+      - pattern: $_GET[$KEY]
+      - pattern: $_POST[$KEY]
+    pattern-sanitizers:
+      - pattern: $DB->prepare(...)
+    pattern-sinks:
+      - pattern: $DB->query($QUERY)
+
+  - id: hck.php.unescaped-output
+    languages: [php]
+    severity: WARNING
+    message: Request data reaches HTML output without a recognized contextual escape.
+    mode: taint
+    pattern-sources:
+      - pattern: $_GET[$KEY]
+      - pattern: $_POST[$KEY]
+    pattern-sanitizers:
+      - pattern: esc_html(...)
+      - pattern: esc_attr(...)
+    pattern-sinks:
+      - pattern: echo $VALUE;

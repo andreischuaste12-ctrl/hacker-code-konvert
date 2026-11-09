@@ -129,7 +129,12 @@ def test_previous_artifacts_can_be_replaced_and_run_json_is_written_last(tmp_pat
     assert main(arguments) == 0
     assert json.loads((output / "run.json").read_text(encoding="utf-8"))["run_id"] != first
     assert output.stat().st_mode & 0o077 == 0
-    assert {entry.name for entry in output.iterdir()} == {"run.json", "findings.json", "report.md"}
+    assert {entry.name for entry in output.iterdir()} == {
+        "run.json",
+        "findings.json",
+        "report.md",
+        "results.sarif",
+    }
 
 
 def test_unwritable_output_is_a_clean_error_not_a_traceback(tmp_path: Path) -> None:

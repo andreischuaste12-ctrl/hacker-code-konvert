@@ -45,7 +45,9 @@ def test_fixture_quality_measurement(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
-    assert json.loads(output.read_text(encoding="utf-8")) == {
+    metrics = json.loads(output.read_text(encoding="utf-8"))
+    assert metrics.pop("per_rule")
+    assert metrics == {
         "false_negatives": 0,
         "false_positives": 0,
         "precision": 1.0,

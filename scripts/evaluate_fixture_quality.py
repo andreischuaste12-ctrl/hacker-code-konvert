@@ -30,6 +30,15 @@ def main() -> int:
         "precision": precision,
         "recall": recall,
     }
+    metrics["per_rule"] = {}  # type: ignore[assignment]
+    for rule in sorted({rule for rule, _ in expected | observed}):
+        wanted = {entry for entry in expected if entry[0] == rule}
+        actual = {entry for entry in observed if entry[0] == rule}
+        metrics["per_rule"][rule] = {
+            "true_positives": len(wanted & actual),
+            "false_positives": len(actual - wanted),
+            "false_negatives": len(wanted - actual),
+        }
     Path(args.output).write_text(json.dumps(metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(metrics, sort_keys=True))
     return 0 if false_positives == 0 and false_negatives == 0 else 1

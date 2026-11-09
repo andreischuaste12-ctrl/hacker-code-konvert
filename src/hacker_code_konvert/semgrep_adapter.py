@@ -10,8 +10,10 @@ from importlib.resources import files
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from hacker_code_konvert.inventory import ScopeError, stage_scan_files
+from hacker_code_konvert.inventory import ScopeError
+from hacker_code_konvert.inventory import stage_neutral_files as stage_scan_files
 from hacker_code_konvert.models import Inventory, ScannerResult
+from hacker_code_konvert.provenance import translate_paths
 from hacker_code_konvert.redaction import redact_text
 from hacker_code_konvert.sandbox import (
     SandboxUnavailable,
@@ -295,7 +297,10 @@ def run_semgrep(
     with tempfile.TemporaryDirectory(prefix="hck-stage-") as temporary:
         staged_root = Path(temporary) / "target"
         try:
-            stage_scan_files(root, inventory, staged_root, max_file_bytes=max_file_bytes)
+            mapping = stage_scan_files(root, inventory, staged_root, max_file_bytes=max_file_bytes)
+            input_hashes = {
+                name: hashlib.sha256((staged_root / name).read_bytes()).hexdigest() for name in mapping
+            }
         except (OSError, ScopeError) as error:
             return ScannerResult(
                 name="semgrep",
@@ -361,8 +366,11 @@ def run_semgrep(
 
     try:
         payload = json.loads(result.stdout.decode("utf-8"))
+        problems = coverage_problems(payload, list(mapping))
         findings = normalize_semgrep(payload, version)
-        problems = coverage_problems(payload, inventory.scan_files)
+        translate_paths(findings, mapping)
+        for name, original in mapping.items():
+            problems = [message.replace(name, ascii(original)) for message in problems]
     except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError, RecursionError) as error:
         return ScannerResult(
             name="semgrep",
@@ -386,4 +394,5 @@ def run_semgrep(
         command=stable_command,
         sandbox=isolation,
         files_scanned=len(scanned) if isinstance(scanned, list) else None,
+        input_hashes=input_hashes,
     )

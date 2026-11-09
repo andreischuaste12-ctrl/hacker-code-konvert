@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hacker-code-konvert"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first defensive source-code security analysis orchestrator"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 authors = [
@@ -24,7 +24,12 @@ dev = [
   "ruff==0.17.4",
   "jsonschema>=4.25.1",
   "pip-audit>=2.9.0",
-  "setuptools==84.2.1"
+  "setuptools==84.2.1",
+  "mypy==1.19.1",
+  "hypothesis==6.156.1",
+  "pytest-cov==7.1.0",
+  "build==1.5.0",
+  "cyclonedx-bom==8.0.1"
 ]
 
 [project.scripts]
@@ -36,7 +41,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 hacker_code_konvert = [
   "data/*.json",
-  "data/*.yml"
+  "data/*.yml",
+  "data/*.toml"
 ]
 
 [tool.pytest.ini_options]
@@ -52,3 +58,6 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/fixtures/**" = ["UP031"]

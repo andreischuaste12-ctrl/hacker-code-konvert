@@ -93,7 +93,7 @@ def validate_finding(finding: dict[str, Any]) -> None:
     pure_path = PurePosixPath(path)
     _require(not pure_path.is_absolute(), "location.path must be relative")
     _require(".." not in pure_path.parts, "location.path cannot escape the repository")
-    _require(pure_path.parts and pure_path.as_posix() != ".", "location.path is required")
+    _require(bool(pure_path.parts) and pure_path.as_posix() != ".", "location.path is required")
     for line_field in ("start_line", "end_line"):
         if line_field in location:
             line = location[line_field]

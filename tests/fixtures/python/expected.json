@@ -7,6 +7,50 @@
     {
       "rule_id": "hck.python.dangerous-eval",
       "path": "tests/hidden_in_tests.py"
+    },
+    {
+      "rule_id": "hck.python.dangerous-exec",
+      "path": "dangerous_exec_bad.py"
+    },
+    {
+      "rule_id": "hck.python.unsafe-pickle",
+      "path": "unsafe_pickle_bad.py"
+    },
+    {
+      "rule_id": "hck.python.weak-password-hash",
+      "path": "weak_password_hash_bad.py"
+    },
+    {
+      "rule_id": "hck.python.tls-verification-disabled",
+      "path": "tls_verification_disabled_bad.py"
+    },
+    {
+      "rule_id": "hck.python.insecure-tempfile",
+      "path": "insecure_tempfile_bad.py"
+    },
+    {
+      "rule_id": "hck.python.assert-authorization",
+      "path": "assert_authorization_bad.py"
+    },
+    {
+      "rule_id": "hck.python.shell-system",
+      "path": "shell_system_bad.py"
+    },
+    {
+      "rule_id": "hck.python.shell-subprocess",
+      "path": "shell_subprocess_bad.py"
+    },
+    {
+      "rule_id": "hck.python.sql-injection",
+      "path": "sql_injection_bad.py"
+    },
+    {
+      "rule_id": "hck.python.hardcoded-credential",
+      "path": "hardcoded_credential_bad.py"
+    },
+    {
+      "rule_id": "hck.python.unsafe-yaml-load",
+      "path": "yaml_bad.py"
     }
   ]
 }

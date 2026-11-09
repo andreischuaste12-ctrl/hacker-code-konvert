@@ -28,7 +28,7 @@ Exit criteria: the CLI inventories a fixture repository deterministically and ne
 
 ## Phase 2: Scanner Adapters
 
-Status: Semgrep Python profile implemented; OSV-Scanner and Gitleaks pending.
+Status: Semgrep Python/PHP, directory-only Gitleaks, and offline lockfile OSV profiles implemented in 0.2.0.
 
 - Integrate Semgrep, OSV-Scanner, and Gitleaks.
 - Pin or record tool versions and rulesets.
@@ -60,7 +60,7 @@ Exit criteria: a differential report identifies its complete revision range, rev
 
 ## Phase 5: Reports
 
-Status: Markdown and normalized JSON implemented; SARIF pending.
+Status: Markdown, normalized JSON and SARIF 2.1.0 implemented.
 
 - Generate Markdown reports for human review.
 - Generate valid SARIF for compatible platforms.

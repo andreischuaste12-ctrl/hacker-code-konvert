@@ -133,6 +133,8 @@ def test_sandbox_has_no_network_no_capabilities_and_read_only_target(
         "lines = open('/proc/self/status').read().splitlines()\n"
         "status = dict(line.split(':\\t') for line in lines if ':\\t' in line)\n"
         "result['cap_effective'] = status['CapEff'].strip()\n"
+        "result['seccomp'] = status['Seccomp'].strip()\n"
+        "result['shadow_visible'] = __import__('os').path.exists('/etc/shadow')\n"
         "print(json.dumps(result))\n"
     )
     try:
@@ -147,3 +149,15 @@ def test_sandbox_has_no_network_no_capabilities_and_read_only_target(
     assert observed["network"] == "blocked"
     assert observed["target_write"] == "denied"
     assert int(observed["cap_effective"], 16) == 0
+    assert observed["seccomp"] == "2"
+    assert not observed["shadow_visible"]
+
+
+def test_standalone_python_runtime_mount_is_narrow(tmp_path: Path):
+    runtime = tmp_path / "runtime"
+    (runtime / "bin").mkdir(parents=True)
+    (runtime / "lib/python3.13").mkdir(parents=True)
+    (runtime / "lib/python3.13/os.py").write_text("# synthetic runtime")
+    executable = runtime / "bin/python3.13"
+    executable.write_text("synthetic")
+    assert runtime_mounts(executable) == [runtime]

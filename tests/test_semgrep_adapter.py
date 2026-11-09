@@ -23,8 +23,8 @@ from hacker_code_konvert.semgrep_adapter import (
 )
 
 EXPECTED_FIXTURE_FINDINGS = {
-    ("hck.python.dangerous-eval", "vulnerable.py"),
-    ("hck.python.dangerous-eval", "tests/hidden_in_tests.py"),
+    (item["rule_id"], item["path"])
+    for item in json.loads((Path(__file__).parent / "fixtures/python/expected.json").read_text())["expected"]
 }
 
 

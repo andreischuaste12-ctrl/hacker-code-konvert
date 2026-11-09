@@ -3,14 +3,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import re
 import stat
+import subprocess
 import sys
+import tempfile
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from hacker_code_konvert import __version__
 from hacker_code_konvert.inventory import (
@@ -21,8 +25,10 @@ from hacker_code_konvert.inventory import (
     validate_output_path,
 )
 from hacker_code_konvert.models import ScannerResult
+from hacker_code_konvert.provenance import rules_metadata
 from hacker_code_konvert.reporting import write_artifacts
 from hacker_code_konvert.schema import ValidationError, validate_findings
+from hacker_code_konvert.scope import load_scope
 from hacker_code_konvert.semgrep_adapter import run_semgrep
 from hacker_code_konvert.textsafety import strip_unsafe_characters
 
@@ -116,18 +122,22 @@ def _printable(value: str) -> str:
 
 
 def _scan(args: argparse.Namespace) -> int:
-    if not args.authorized:
+    if not args.authorized and not args.scope_file:
         print("error: --authorized is required to confirm the repository is in scope", file=sys.stderr)
         return 2
+    if args.memory_mb is None:
+        args.memory_mb = 16384 if args.scanner in ("gitleaks", "osv-scanner") else 4096
     started_at = datetime.now(UTC)
     started_monotonic = time.monotonic()
     try:
         root = resolve_repository(args.repository)
+        scope = load_scope(Path(args.scope_file), root) if args.scope_file else None
         output = validate_output_path(root, args.output)
         inventory = build_inventory(
             root,
             max_file_bytes=args.max_file_bytes,
             max_files=args.max_files,
+            snapshot=getattr(args, "snapshot_root", None),
         )
     except (OSError, ScopeError) as error:
         print(f"error: {_printable(str(error))}", file=sys.stderr)
@@ -137,6 +147,19 @@ def _scan(args: argparse.Namespace) -> int:
         scanner = run_semgrep(
             root,
             inventory,
+            timeout_seconds=args.timeout,
+            memory_bytes=args.memory_mb * 1024 * 1024,
+            output_bytes=args.max_output_bytes,
+            max_file_bytes=args.max_file_bytes,
+        )
+    elif args.scanner in ("gitleaks", "osv-scanner"):
+        from hacker_code_konvert.external import run_external
+
+        scanner = run_external(
+            args.scanner,
+            root,
+            inventory,
+            database=Path(args.offline_database) if args.offline_database else None,
             timeout_seconds=args.timeout,
             memory_bytes=args.memory_mb * 1024 * 1024,
             output_bytes=args.max_output_bytes,
@@ -157,7 +180,7 @@ def _scan(args: argparse.Namespace) -> int:
         "partial_coverage",
     )
     limitations = [
-        "Only Python source files are supported by the initial Semgrep profile.",
+        "The bundled profile covers selected Python and WordPress/PHP patterns, not all vulnerabilities.",
         "Scanner results are candidates and have not received human validation.",
         "The analyzer does not execute target application code or dynamic tests.",
     ]
@@ -171,11 +194,13 @@ def _scan(args: argparse.Namespace) -> int:
     ]
     if skipped_python:
         limitations.append(
-            f"{len(skipped_python)} Python file(s) were skipped and not analyzed; "
+            f"{len(skipped_python)} supported source file(s) were skipped and not analyzed; "
             "see inventory.skipped in run.json for each reason."
         )
     if scanner.name == "semgrep" and scanner.version is None:
         limitations.append("The Semgrep version could not be determined; the run is harder to reproduce.")
+    if os.geteuid() == 0:
+        limitations.append("Analyzer is running as root; host container security remains relevant.")
     limitations.extend(inventory.limitations)
     complete = scanner.status in COMPLETE_STATUSES
     if not complete:
@@ -184,6 +209,9 @@ def _scan(args: argparse.Namespace) -> int:
     sandboxed = bool(scanner.sandbox)
     run: dict[str, Any] = {
         "schema_version": "1.0",
+        "rules_applied": rules_metadata(scanner.name) if scanner.name != "inventory" else None,
+        "runtime": {"python": platform.python_version()},
+        "authorization": scope,
         "run_id": str(uuid.uuid4()),
         "started_at": started_at.isoformat(),
         "duration_ms": int((time.monotonic() - started_monotonic) * 1000),
@@ -222,8 +250,8 @@ def _scan(args: argparse.Namespace) -> int:
     else:
         print(f"status: {'complete' if complete else 'incomplete'}")
     if not complete:
-        for error in scanner.errors:
-            print(f"scanner error: {_printable(error)}", file=sys.stderr)
+        for message in scanner.errors:
+            print(f"scanner error: {_printable(message)}", file=sys.stderr)
     return 0 if complete else 3
 
 
@@ -234,10 +262,54 @@ def _validate(args: argparse.Namespace) -> int:
         if not isinstance(findings, list):
             raise ValidationError("input must be a finding list or an object containing 'findings'")
         validate_findings(findings)
-    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError, ValidationError) as error:
+        if any(finding["status"] in ("validated", "accepted_risk") for finding in findings):
+            from hacker_code_konvert.review import verify_review
+
+            if not args.signature or not args.allowed_signers or not args.reviewer:
+                raise ValidationError("Reviewed findings require a signature, allowed signers, and reviewer")
+            verify_review(Path(args.file), Path(args.signature), Path(args.allowed_signers), args.reviewer)
+    except (
+        OSError,
+        UnicodeError,
+        json.JSONDecodeError,
+        RecursionError,
+        ValueError,
+        subprocess.SubprocessError,
+    ) as error:
         print(f"invalid: {_printable(str(error))}", file=sys.stderr)
         return 2
     print(f"valid: {len(findings)} finding(s)")
+    return 0
+
+
+def _draft(args: argparse.Namespace) -> int:
+    if _validate(args):
+        return 2
+    from hacker_code_konvert.redaction import redact
+    from hacker_code_konvert.reporting import _atomic_write, _markdown_text
+
+    payload = json.loads(Path(args.file).read_text())
+    findings = payload.get("findings", []) if isinstance(payload, dict) else payload
+    validated = [finding for finding in findings if finding["status"] == "validated"]
+    if not validated:
+        print("error: no validated findings available", file=sys.stderr)
+        return 2
+    lines = ["# Private vulnerability disclosure draft", "", "Draft only; no report has been sent.", ""]
+    for finding in redact(validated):
+        lines.extend(
+            [
+                f"## {_markdown_text(finding['title'])}",
+                f"Impact: {_markdown_text(finding['impact'])}",
+                f"Evidence: {_markdown_text(finding['evidence'].get('summary', ''))}",
+                f"Remediation: {_markdown_text(finding['remediation'].get('summary', ''))}",
+                "",
+            ]
+        )
+    output = Path(args.output)
+    if output.exists():
+        print("error: disclosure draft output must be new", file=sys.stderr)
+        return 2
+    _atomic_write(output, "\n".join(lines))
     return 0
 
 
@@ -249,18 +321,20 @@ def build_parser() -> argparse.ArgumentParser:
     scan = subparsers.add_parser("scan", help="inventory and analyze an authorized repository")
     scan.add_argument("repository")
     scan.add_argument("--output", required=True)
+    scan.add_argument("--scope-file", help="JSON authorization record (JSON is a YAML subset)")
     scan.add_argument(
         "--authorized", action="store_true", help="confirm the repository is authorized and in scope"
     )
     scan.add_argument(
         "--scanner",
-        choices=("semgrep", "inventory"),
+        choices=("semgrep", "inventory", "gitleaks", "osv-scanner"),
         default="semgrep",
         help="semgrep (default) runs the isolated vulnerability scanner; "
         "inventory only lists files and never reports on vulnerabilities",
     )
+    scan.add_argument("--offline-database", help="Explicit pre-downloaded OSV database directory")
     scan.add_argument("--timeout", type=_positive_integer, default=60)
-    scan.add_argument("--memory-mb", type=_positive_integer, default=4096)
+    scan.add_argument("--memory-mb", type=_positive_integer, default=None)
     scan.add_argument("--max-output-bytes", type=_positive_integer, default=5_000_000)
     scan.add_argument("--max-file-bytes", type=_positive_integer, default=1_000_000)
     scan.add_argument("--max-files", type=_positive_integer, default=10_000)
@@ -268,7 +342,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate = subparsers.add_parser("validate", help="validate normalized findings JSON")
     validate.add_argument("file")
+    validate.add_argument("--signature")
+    validate.add_argument("--allowed-signers")
+    validate.add_argument("--reviewer")
     validate.set_defaults(handler=_validate)
+
+    report = subparsers.add_parser("report", help="prepare a private disclosure draft")
+    reports = report.add_subparsers(dest="report_command", required=True)
+    draft = reports.add_parser("draft")
+    draft.add_argument("file")
+    draft.add_argument("--output", required=True)
+    draft.add_argument("--signature", required=True)
+    draft.add_argument("--allowed-signers", required=True)
+    draft.add_argument("--reviewer", required=True)
+    draft.set_defaults(handler=_draft)
     return parser
 
 
@@ -276,4 +363,9 @@ def main(argv: list[str] | None = None) -> int:
     os.umask(0o077)
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.handler(args)
+    handler = cast(Callable[[argparse.Namespace], int], args.handler)
+    if args.command == "scan":
+        with tempfile.TemporaryDirectory(prefix="hck-capture-") as directory:
+            args.snapshot_root = Path(directory) / "files"
+            return handler(args)
+    return handler(args)

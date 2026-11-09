@@ -54,7 +54,9 @@ def test_clean_notice_is_only_used_for_complete_scans() -> None:
     incomplete = render_markdown(_run(complete=False), [])
     assert "No findings were identified" not in incomplete
     assert "not meaningful" in incomplete
-    inventory_only = render_markdown(_run(vulnerability_scan_performed=False), [])
+    inventory_run = _run(vulnerability_scan_performed=False)
+    inventory_run["scanner"]["name"] = "inventory"
+    inventory_only = render_markdown(inventory_run, [])
     assert "No vulnerability scanner was run" in inventory_only
 
 

@@ -4,6 +4,28 @@ All notable project changes are documented here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.2.0] - 2026-11-09
+
+### Added
+
+- Twelve original Python rules and three WordPress/PHP candidate patterns with positive and negative fixtures.
+- Neutral staging names, original filename byte preservation, rule hashes and selected input hashes.
+- Seccomp filters, restricted /etc mounts, root-user notice and descriptor-relative staging.
+- Directory-only Gitleaks and offline lockfile-only OSV adapters with verified binary installation.
+- SARIF 2.1.0 output tested against the OASIS schema.
+- Scope records, SSH-signed review validation and private local disclosure drafts.
+- Strict mypy, property tests, 95% branch-coverage gate and Python 3.12/3.13 CI.
+- Separate hash-pinned development/scanner locks, CodeQL and Scorecard workflows.
+- Manual release pipeline with signed-tag verification, provenance, SBOM and PyPI OIDC.
+
+### Release prerequisites
+
+Versioned package artifacts can be built locally. A signed tag, GitHub release and PyPI publication still
+require maintainer signing and administrative configuration; a version entry alone is not publication.
+
+
 ### Security
 
 - A run no longer reports itself complete when Semgrep silently skipped files. Semgrep's built-in default

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(semgrep:*)",
+      "Bash(gitleaks:*)",
+      "Bash(osv-scanner:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}

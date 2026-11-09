@@ -14,9 +14,9 @@ The CLI is the enforcement layer for the MVP. Prose in `SKILL.md` does not repla
 | Capability | Input | Output | Current limits |
 | --- | --- | --- | --- |
 | Repository inventory | Explicit local directory and authorization confirmation | Relative file inventory, languages, manifests, skipped entries, and limitations | Maximum 10,000 files by default; symlinks and nested repositories are not traversed |
-| Python SAST | Regular `.py` files staged from the authorized root | Semgrep candidates normalized to the finding contract, with a coverage check | Python only; two bundled rules; candidates are never automatically validated |
+| Python SAST | Regular `.py` and `.php` files staged from the authorized root | Semgrep candidates normalized to the finding contract, with a coverage check | 12 Python rules and 3 PHP review patterns; candidates are never automatically validated |
 | Finding validation | JSON finding list | Pass or explicit contract error | Semantic cross-field rules are enforced in Python; JSON Schema is published for interoperability |
-| Reporting | Completed or incomplete run | `run.json`, `findings.json`, and `report.md` | Markdown and normalized JSON only; SARIF is deferred |
+| Reporting | Completed or incomplete run | `run.json`, `findings.json`, `report.md`, and `results.sarif` | Markdown, normalized JSON and SARIF 2.1.0 |
 
 ## Analysis Mode
 
@@ -26,7 +26,7 @@ The CLI requires `--authorized`. This records the operator's confirmation; it do
 
 ## Supported Environment
 
-- Python 3.12 or newer
+- Python 3.12 or 3.13
 - Linux for Semgrep execution
 - Bubblewrap with usable user and network namespaces
 - Semgrep 1.184.0 for the optional Python SAST profile

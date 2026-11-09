@@ -45,3 +45,13 @@ For repeated internal runs, track scanner completion rate, sandbox failures, ski
 schema completeness, candidate-to-validated conversion, false-positive rate after review, and median time
 to remediation. Compare only runs with the same tool, rule-set, and project revision. Reports include
 those versions so that results can be reproduced and differences can be explained.
+
+## Version 0.2.0 corpus
+
+The Python fixture now covers all 12 original rule classes, with explicit safe neighbors and expected
+findings. PHP has a separate three-pattern fixture for WordPress public AJAX registration, tainted SQL,
+and output escaping. `quality.json` includes per-rule true positives, false positives and false negatives.
+All fixtures remain synthetic and small; 100% fixture accuracy is not a production recall estimate.
+CI runs Python 3.12 and 3.13 with mandatory sandbox/scanner integrations, strict mypy and a measured 95%
+branch-coverage gate. Only the child-process resource-limit setter and child pre-exec hook are excluded
+from coverage instrumentation; process behavior is tested by timeouts, output limits and sandbox probes.

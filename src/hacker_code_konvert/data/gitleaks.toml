@@ -1,0 +1,6 @@
+title = "Hacker Code Konvert controlled credential rules"
+[[rules]]
+id = "hck-secret-assignment"
+description = "Credential assignment candidate"
+regex = '''(?i)(?:api_key|password|secret_key|access_token)\s*[:=]\s*["']([A-Za-z0-9_./+!=-]{8,})["']'''
+secretGroup = 1

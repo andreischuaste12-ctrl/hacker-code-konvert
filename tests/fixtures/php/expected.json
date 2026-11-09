@@ -1,0 +1,5 @@
+{"expected": [
+{"rule_id":"hck.php.public-ajax-handler","path":"vulnerable.php"},
+{"rule_id":"hck.php.wpdb-injection","path":"vulnerable.php"},
+{"rule_id":"hck.php.unescaped-output","path":"vulnerable.php"}
+]}

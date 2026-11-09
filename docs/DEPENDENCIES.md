@@ -3,17 +3,23 @@
 ## Runtime and development
 
 The `hck` package has no runtime dependencies. Semgrep is an optional extra (`.[semgrep]`) that runs as a
-separate process inside the sandbox. `requirements-dev.txt` is the complete development lock for Python 3.12.
+separate process inside the sandbox. `requirements-dev.txt` locks development tools; `requirements-semgrep.txt` locks the scanner. Both are universal for the declared Python 3.12/3.13 range. Install them in separate virtual environments.
 It is generated, not edited by hand:
 
 ```bash
-uv pip compile pyproject.toml --extra semgrep --extra dev --python-version 3.12 \
+uv pip compile pyproject.toml --extra dev --universal \
   --generate-hashes --output-file requirements-dev.txt
 ```
 
 CI installs it with `pip install --require-hashes`, builds without network access to a build backend
 (`--no-build-isolation`, `setuptools` is part of the lock), and runs `pip-audit` on every push, pull request,
 and weekly. To upgrade one package, add `--upgrade-package <name>` to the command above and review the diff.
+
+Generate the scanner lock separately with:
+
+```bash
+uv pip compile requirements-semgrep.in --universal --generate-hashes --output-file requirements-semgrep.txt
+```
 
 ## Accepted advisories
 
@@ -33,7 +39,7 @@ explicitly listed in `.github/workflows/ci.yml`, and limited to the conditions s
 These packages are present only as transitive dependencies of Semgrep. The assessment is the maintainers'
 reading of the advisory descriptions and of how the CLI invokes Semgrep, not a guarantee.
 
-Review date: 2026-11-07. Remove an entry (and its `--ignore-vuln` flag) as soon as a Semgrep release allows the
+Review date: 2026-11-09. PyPI was checked again: Semgrep 1.184.0 is still current and still pins these affected packages. Remove an entry (and its `--ignore-vuln` flag) as soon as a Semgrep release allows the
 fixed version, or earlier if Semgrep starts using the affected feature. Re-run `pip-audit` without the ignore
 flags when upgrading Semgrep.
 

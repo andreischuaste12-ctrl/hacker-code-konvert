@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -12,6 +13,9 @@ class SkippedEntry:
 
 @dataclass
 class Inventory:
+    snapshot_root: Path | None = None
+    snapshot_paths: dict[str, str] = field(default_factory=dict)
+    regular_files: list[str] = field(default_factory=list)
     files_seen: int = 0
     bytes_seen: int = 0
     languages: dict[str, int] = field(default_factory=dict)
@@ -21,7 +25,10 @@ class Inventory:
     limitations: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        result = asdict(self)
+        result.pop("snapshot_root", None)
+        result.pop("snapshot_paths", None)
+        return result
 
 
 @dataclass
@@ -37,6 +44,7 @@ class ScannerResult:
     sandbox: dict[str, Any] = field(default_factory=dict)
     # Files the scanner reported as analyzed, used to prove coverage; None when not applicable.
     files_scanned: int | None = None
+    input_hashes: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

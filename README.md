@@ -10,7 +10,7 @@ The planned approach combines code analysis, security auditing, and automated to
 
 ## Project Status
 
-Version 0.1.0 provides a local end-to-end MVP for repository inventory, optional isolated Semgrep analysis of Python files, executable finding validation, and Markdown or JSON reporting. Scanner findings remain candidates until independently reviewed.
+Version 0.2.0 provides a local end-to-end MVP for repository inventory, isolated Semgrep analysis of Python and PHP files, executable finding validation, and Markdown, JSON and SARIF reporting. Scanner findings remain candidates until independently reviewed.
 
 The rule pack is intentionally small. A completed run means that the requested checks finished, not that the analyzed repository is secure.
 
@@ -27,18 +27,18 @@ The rule pack is intentionally small. A completed run means that the requested c
 
 The initial implementation focuses on:
 
-1. Static inventory of a selected repository and Semgrep analysis of Python source files.
+1. Static inventory of a selected repository and Semgrep analysis of Python and PHP source files.
 2. Classification of findings by severity, with evidence and relevant context.
 3. Security reports containing actionable remediation recommendations.
 4. Human review before any findings are communicated to maintainers.
 
-Active security testing, dependency vulnerability analysis, automated outreach, remote AI processing, and autonomous remediation remain outside the implemented scope.
+Active security testing, automatic maintainer outreach, remote AI processing, Git-history secret scanning and autonomous remediation remain outside the implemented scope.
 
 Scanner status:
 
 - **Semgrep 1.184.0:** implemented for Python through bundled local rules and networkless Bubblewrap isolation.
-- **OSV-Scanner:** planned for dependency vulnerability analysis.
-- **Gitleaks:** planned for secret detection with mandatory redaction and suppression-resistant staging.
+- **OSV-Scanner 2.7.1:** isolated lockfile analysis using an explicitly prepared offline database.
+- **Gitleaks 8.30.1:** isolated directory-only secret detection with controlled rules, empty ignore file and redacted output.
 
 Scanner output will be treated as evidence for review, not as a confirmed vulnerability by itself.
 
@@ -62,12 +62,16 @@ Scanner output will be treated as evidence for review, not as a confirmed vulner
 
 ## Quick Start
 
-The Semgrep profile requires Linux, Python 3.12 or newer, and Bubblewrap with namespace support.
+The Semgrep profile requires Linux, Python 3.12 or 3.13, and Bubblewrap with namespace support.
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e '.[semgrep]'
+python -m pip install --require-hashes -r requirements-dev.txt
+python -m pip install --no-deps --no-build-isolation -e .
+python -m venv /tmp/hck-semgrep
+/tmp/hck-semgrep/bin/python -m pip install --require-hashes -r requirements-semgrep.txt
+export PATH="/tmp/hck-semgrep/bin:$PATH"
 ```
 
 Run the isolated Python Semgrep profile (the default scanner):
@@ -130,3 +134,14 @@ Make software development safer, more accessible, and more trustworthy by using 
 Copyright 2026 Andrei Schuaste.
 
 Licensed under the [Apache License 2.0](LICENSE).
+
+## Version 0.2.0 additions
+
+The bundled original rules cover 12 Python classes and 3 WordPress/PHP review patterns. Rules, hashes,
+selected-file hashes, scanner versions, Python version and actual isolation appear in `run.json`.
+Coverage completion describes the requested checks only. The small synthetic corpus is not a real-world
+accuracy estimate. See [the implementation status](docs/IMPROVEMENT_STATUS.md) for external prerequisites.
+
+- [Operational commands](docs/OPERATIONS.md): offline scanners, authorization records, SSH review and disclosure drafts.
+- `results.sarif` is generated locally; upload to GitHub code scanning is a separate authorized action.
+- Development and Semgrep dependencies use separate hash-pinned universal locks for Python 3.12/3.13.
