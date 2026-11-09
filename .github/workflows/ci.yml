@@ -15,6 +15,7 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         python: ["3.12", "3.13"]
     runs-on: ubuntu-24.04
@@ -49,13 +50,16 @@ jobs:
           python -m pip install --disable-pip-version-check --no-input --require-hashes -r requirements-dev.txt
           python -m venv /tmp/hck-semgrep
           /tmp/hck-semgrep/bin/python -m pip install --require-hashes -r requirements-semgrep.txt
-          echo "/tmp/hck-semgrep/bin" >> "$GITHUB_PATH"
+          mkdir -p /tmp/hck-scanner-tools
+          ln -s /tmp/hck-semgrep/bin/semgrep /tmp/hck-scanner-tools/semgrep
+          echo "/tmp/hck-scanner-tools" >> "$GITHUB_PATH"
           python -m pip install --disable-pip-version-check --no-input --no-deps --no-build-isolation -e .
 
       - name: Install verified external scanner binaries
         run: |
           python scripts/install_external_tools.py --environment /tmp/hck-external
-          echo "/tmp/hck-external/bin" >> "$GITHUB_PATH"
+          ln -s /tmp/hck-external/bin/gitleaks /tmp/hck-scanner-tools/gitleaks
+          ln -s /tmp/hck-external/bin/osv-scanner /tmp/hck-scanner-tools/osv-scanner
 
       - name: Audit pinned dependencies
         # Accepted advisories are documented, with rationale and removal conditions, in docs/DEPENDENCIES.md.
