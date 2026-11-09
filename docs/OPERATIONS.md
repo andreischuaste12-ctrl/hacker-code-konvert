@@ -29,7 +29,15 @@ independently authenticate a contract or grant permission. `--authorized` remain
 
 Gitleaks scans bounded regular files from the inventory, without Git history or target ignore/config files.
 OSV accepts supported lockfiles only, disables resolution and call analysis, and mounts the database
-read-only. Prepare `<database>/osv-scalibr/<ecosystem>/all.zip` in an explicit online update step using
+read-only. Prepare the database in a separate explicit online step:
+
+```bash
+python scripts/update_osv_database.py --ecosystem npm --output /private/osv-database
+```
+
+This downloads the official ecosystem archive over verified HTTPS and writes a timestamped SHA256
+provenance record; no repository dependencies are sent. It is never called by the analyzer. You may also
+prepare `<database>/osv-scalibr/<ecosystem>/all.zip` using
 OSV's official database distribution. Preserve its source, retrieval time and checksums. Do not use
 `--download-offline-databases` in analysis. Without offline mode, OSV would disclose dependency names;
 this adapter never enables that mode. An unsupported or absent database makes the scan fail.
