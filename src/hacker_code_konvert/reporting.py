@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
@@ -170,9 +171,18 @@ def write_artifacts(output: Path, run: dict[str, Any], findings: list[dict[str, 
     output.mkdir(mode=0o700, parents=True, exist_ok=True)
     if created:
         output.chmod(0o700)
-    write_json(output / "findings.json", {"schema_version": "1.0", "findings": findings})
-    _atomic_write(output / "report.md", render_markdown(redact(run), redact(findings)))
-    from hacker_code_konvert.sarif import render_sarif
+    # Serialize writers without creating an extra file in the report directory.
+    descriptor = os.open(output, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        # Invalidate the previous commit marker before replacing any artifacts. A failed
+        # overwrite must never retain an old complete run alongside new findings.
+        (output / "run.json").unlink(missing_ok=True)
+        write_json(output / "findings.json", {"schema_version": "1.0", "findings": findings})
+        _atomic_write(output / "report.md", render_markdown(redact(run), redact(findings)))
+        from hacker_code_konvert.sarif import render_sarif
 
-    write_json(output / "results.sarif", render_sarif(run, findings))
-    write_json(output / "run.json", run)
+        write_json(output / "results.sarif", render_sarif(run, findings))
+        write_json(output / "run.json", run)
+    finally:
+        os.close(descriptor)

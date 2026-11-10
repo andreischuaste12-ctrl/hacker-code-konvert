@@ -8,7 +8,7 @@ measurement therefore covers both detection and the evidence required for valida
 | Corpus | Content | Matching |
 | --- | --- | --- |
 | `tests/fixtures/python` | One vulnerable and one safe neighbor for each of the 19 Python rules, plus suppression attempts (`nosemgrep`, a target `.semgrepignore`, code under `tests/`) | rule and file |
-| `tests/fixtures/php` | One vulnerable and one safe neighbor for each of the 14 PHP rules, with WordPress and WooCommerce sinks and escaping functions | rule and file |
+| `tests/fixtures/php` | One vulnerable and one safe neighbor for each of the 15 PHP rules, with WordPress and WooCommerce sinks and escaping functions | rule and file |
 | `tests/fixtures/mixed` | Common vulnerable patterns written during an independent audit, before the rules were extended | rule, file and line |
 
 All content is synthetic. The first two corpora were written together with the rules, so they can only
@@ -29,7 +29,7 @@ CI scans every corpus through the real sandbox and compares normalized findings 
 counted as detected, `quality.json` reports recall with and without them, and the measurement fails if a
 known gap starts being detected, so that the corpus and this document change together.
 
-Current known gap (mixed corpus, 28 of 29 patterns detected): a shell command reached through
+Current known gap (mixed corpus, 29 of 30 patterns detected): a shell command reached through
 `__import__("os").system(...)`.
 
 These values describe the checked corpora. They are not estimates of performance on arbitrary
@@ -69,3 +69,12 @@ behavior is tested through timeouts, output limits and probes executed inside th
 For repeated internal runs, track scanner completion rate, sandbox failures, skipped or oversized files,
 candidate-to-validated conversion, false-positive rate after review, and median time to remediation.
 Compare only runs with the same tool, rule-set, and project revision; reports include those versions.
+
+## Context-sensitive escape regressions
+
+The URL-attribute rule checks request data in concatenated `href`, `src`, `action` and `formaction`
+outputs separately from ordinary HTML attributes. `esc_attr` and HTML entity encoding do not
+validate URL protocols; `esc_url` is recognized for that context. SQL string escaping is not
+accepted as universal protection for SQL expressions. Python URL encoding is not treated as
+validation of an outbound host. Tests include unsafe encoded/escaped inputs and safe neighbors.
+These checks remain a limited static model, not a complete HTML/JavaScript context parser.

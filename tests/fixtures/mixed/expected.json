@@ -139,6 +139,11 @@
       "rule_id": "hck.php.request-data-persisted",
       "path": "plugin.php",
       "line": 15
+    },
+    {
+      "rule_id": "hck.php.unsafe-url-attribute",
+      "path": "plugin.php",
+      "line": 17
     }
   ],
   "known_gaps": [

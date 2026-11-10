@@ -71,7 +71,7 @@ def test_lfs_pointer_of_a_binary_asset_is_not_a_source_coverage_gap(tmp_path: Pa
     root = tmp_path / "repository"
     root.mkdir()
     (root / "photo.png").write_text(LFS_POINTER, encoding="utf-8")
-    inventory = build_inventory(root)
+    inventory = build_inventory(root, scanner="semgrep")
     assert not inventory.incomplete
 
 

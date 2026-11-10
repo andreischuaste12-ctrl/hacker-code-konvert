@@ -276,10 +276,6 @@ rules:
       owasp: [A10:2021-Server-Side Request Forgery]
     mode: taint
     pattern-sources: *python_sources
-    pattern-sanitizers:
-      - pattern: urllib.parse.quote(...)
-      - pattern: urllib.parse.quote_plus(...)
-      - pattern: urllib.parse.urlencode(...)
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -386,8 +382,6 @@ rules:
       - pattern: floatval(...)
       - pattern: (int) $VALUE
       - pattern: (float) $VALUE
-      - pattern: esc_sql(...)
-      - pattern: sanitize_key(...)
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -416,7 +410,6 @@ rules:
       - pattern: esc_html(...)
       - pattern: esc_attr(...)
       - pattern: esc_url(...)
-      - pattern: esc_js(...)
       - pattern: esc_textarea(...)
       - pattern: wp_kses(...)
       - pattern: wp_kses_post(...)
@@ -601,3 +594,26 @@ rules:
     pattern-sinks:
       - pattern: extract(...)
       - pattern: parse_str($STRING)
+
+  # Attribute escaping does not validate a URL's protocol. Keep this context separate
+  # from ordinary HTML text and attributes, where esc_attr is appropriate.
+  - id: hck.php.unsafe-url-attribute
+    languages: [php]
+    severity: WARNING
+    message: Request data reaches a URL attribute without protocol validation.
+    metadata:
+      cwe: [CWE-79]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sanitizers:
+      - pattern: esc_url(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: echo $PREFIX . $URL . $SUFFIX;
+              - pattern: echo $PREFIX . $URL;
+          - metavariable-regex:
+              metavariable: $PREFIX
+              regex: '(?is).*\b(?:href|src|action|formaction)\s*='
+          - focus-metavariable: $URL

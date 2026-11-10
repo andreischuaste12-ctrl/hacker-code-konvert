@@ -90,6 +90,7 @@ def build_inventory(
     scanner: str = "all",
     max_total_bytes: int = 256 * 1024**2,
     max_depth: int = 64,
+    timeout_seconds: float = 60,
 ) -> Inventory:
     """Inventory the repository and capture the selected files in one descriptor-relative pass.
 
@@ -99,11 +100,14 @@ def build_inventory(
     from hacker_code_konvert.snapshot import capture
 
     if snapshot is not None:
-        return capture(root, snapshot, max_file_bytes, max_files, scanner, max_total_bytes, max_depth)
+        return capture(
+            root, snapshot, max_file_bytes, max_files, scanner, max_total_bytes, max_depth, timeout_seconds
+        )
     owner = Path(tempfile.mkdtemp(prefix="hck-capture-"))
     try:
         inventory = capture(
-            root, owner / "files", max_file_bytes, max_files, scanner, max_total_bytes, max_depth
+            root, owner / "files", max_file_bytes, max_files, scanner,
+            max_total_bytes, max_depth, timeout_seconds
         )
     except BaseException:
         shutil.rmtree(owner, ignore_errors=True)

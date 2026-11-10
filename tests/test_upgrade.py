@@ -38,7 +38,7 @@ def test_neutral_staging_preserves_hostile_paths(tmp_path: Path) -> None:
 
 def test_rules_manifest_covers_twelve_classes() -> None:
     rules = rules_metadata()
-    assert rules["count"] == 33
+    assert rules["count"] == 34
     assert len(rules["sha256"]) == 64
 
 

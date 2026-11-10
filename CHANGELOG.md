@@ -4,6 +4,16 @@ All notable project changes are documented here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed: follow-up to the audit of e6971e2
+- Restore SQL/SSRF candidates hidden by context-inappropriate escaping, and add a dedicated
+  PHP URL-attribute XSS rule (34 bundled rules: 19 Python, 15 PHP).
+- Invalidate the previous report marker and serialize writers when replacing report artifacts.
+- Mark missing Git LFS objects as incomplete for secret scans, regardless of suffix.
+- Bound directory enumeration, all visited entries and capture time before scanner execution.
+- Reject malformed/oversized database provenance with controlled scanner failures.
+- Record linked-worktree revisions using bounded metadata reads and verified back-references.
+- Apply the project's copyright owner, Andrei Schuaste, to the Apache notice example.
+
 ### Security: follow-up to the audit of dccd0b2
 
 - Gitleaks no longer honors inline `gitleaks:allow` comments from the analyzed repository.

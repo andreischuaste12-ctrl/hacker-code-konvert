@@ -14,7 +14,7 @@ The CLI is the enforcement layer for the MVP. Prose in `SKILL.md` does not repla
 | Capability | Input | Output | Current limits |
 | --- | --- | --- | --- |
 | Repository inventory | Explicit local directory and authorization confirmation | Relative file inventory, languages, manifests, skipped entries, and limitations | Maximum 10,000 files by default; symlinks and nested repositories are not traversed |
-| Python and PHP SAST | Source files selected by suffix, interpreter line or leading PHP tag, staged from the authorized root | Semgrep candidates normalized to the finding contract, with a coverage check | 19 Python and 14 PHP/WordPress rules; candidates are never automatically validated |
+| Python and PHP SAST | Source files selected by suffix, interpreter line or leading PHP tag, staged from the authorized root | Semgrep candidates normalized to the finding contract, with a coverage check | 19 Python and 15 PHP/WordPress rules; candidates are never automatically validated |
 | Dependency advisories | Lockfiles and pinned `requirements*.txt`, with an operator-prepared offline database | OSV candidates naming the package, locked version, advisory and fixed version | Per-file coverage; unpinned or unparsable files are coverage gaps |
 | Secret detection | Every captured regular file | Gitleaks candidates with the value redacted | Per-file coverage is not reported by the scanner; a canary proves the rules ran |
 | Finding validation | JSON finding list | Pass or explicit contract error | Semantic cross-field rules are enforced in Python; JSON Schema is published for interoperability |

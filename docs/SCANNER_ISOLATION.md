@@ -21,7 +21,7 @@ Anything the scanner will not see is recorded in `inventory.skipped`. Entries th
 | Directory containing `.git` (nested repository, submodule, or a planted marker) | yes | yes |
 | Unreadable file or directory, depth/count limit, per-file or total size limit | yes | yes |
 | Git LFS pointer in place of a source or dependency file | yes | yes |
-| Git LFS pointer in place of any other file (for example an image) | yes | no |
+| Git LFS pointer in place of any other file | yes | yes for Gitleaks; no for source/dependency-only scans |
 | Symbolic link, FIFO, socket or device | yes | no |
 | Semgrep selected, but no supported source file found | error | yes |
 
@@ -86,3 +86,17 @@ Scanner stdout and stderr are written to bounded temporary files. Oversized, tim
 - The read-only system directories (`/usr`, `/bin`, `/lib`, `/lib64`) are visible to the scanner.
 - Bubblewrap depends on Linux kernel namespace support and local security policy.
 - The bundled rules are a small, reviewed set. A completed run means the requested checks finished on the selected files, not that the repository is secure.
+
+## Capture and report publication limits
+
+Capture has its own wall-clock deadline, using `--timeout`, before scanner execution starts.
+The traversal budget is twice `--max-files` and counts every directory entry, including links,
+special files and ignored directories. Directory enumeration is bounded before sorting. Exceeding
+this budget or deadline aborts capture with an explicit scope error; no complete scan is reported.
+As with ordinary filesystem I/O, a stalled kernel/filesystem read cannot be interrupted by a
+cooperative deadline; scan local immutable checkouts for predictable behavior.
+
+Report writers lock the output directory and remove the previous `run.json` before replacing
+artifacts. `run.json` is published last. A failed overwrite leaves no completion marker. Consumers
+must require that marker and must not read while a writer is active; readers needing a stable set
+should take a shared flock on the output directory or use a separate output directory per run.

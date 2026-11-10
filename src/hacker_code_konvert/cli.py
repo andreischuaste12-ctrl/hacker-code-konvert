@@ -73,6 +73,32 @@ def _read_git_file(path: Path, limit: int) -> str | None:
         return None
 
 
+def _worktree_git_directory(root: Path) -> Path | None:
+    """Accept only Git's linked-worktree layout with a matching back-reference."""
+    marker = _read_git_file(root / ".git", MAX_GIT_FILE_BYTES)
+    if marker is None or not marker.startswith("gitdir: "):
+        return None
+    candidate = root / marker[8:].strip()
+    try:
+        # Reject symlinks in every component before reading external Git metadata.
+        candidate = Path(os.path.abspath(candidate))
+        if any(part.is_symlink() for part in (candidate, *candidate.parents)):
+            return None
+        if candidate.parent.name != "worktrees" or not candidate.is_dir():
+            return None
+        back = _read_git_file(candidate / "gitdir", MAX_GIT_FILE_BYTES)
+        common = _read_git_file(candidate / "commondir", MAX_GIT_FILE_BYTES)
+        if back is None or common is None:
+            return None
+        if Path(os.path.abspath(candidate / back.strip())) != root / ".git":
+            return None
+        if common.strip() != "../..":
+            return None
+        return candidate
+    except OSError:
+        return None
+
+
 def _git_revision(root: Path) -> str | None:
     """Return the checked-out commit id, treating the analyzed .git directory as untrusted.
 
@@ -80,9 +106,16 @@ def _git_revision(root: Path) -> str | None:
     a bounded regular file inside .git, and no symlink is followed.
     """
     git_dir = root / ".git"
+    linked_worktree = False
     try:
-        if git_dir.is_symlink() or not git_dir.is_dir():
+        if git_dir.is_symlink():
             return None
+        if not git_dir.is_dir():
+            linked = _worktree_git_directory(root)
+            if linked is None:
+                return None
+            git_dir = linked
+            linked_worktree = True
         git_root = git_dir.resolve(strict=True)
     except OSError:
         return None
@@ -102,7 +135,10 @@ def _git_revision(root: Path) -> str | None:
         return None
     if any(part in ("", ".", "..") or part.startswith(".") for part in parts):
         return None
-    loose = git_dir / reference
+    # Linked worktrees share ordinary refs with the common Git directory.
+    refs_dir = git_dir.parent.parent if linked_worktree else git_dir
+    git_root = refs_dir.resolve(strict=True)
+    loose = refs_dir / reference
     try:
         if not loose.resolve(strict=False).is_relative_to(git_root):
             return None
@@ -114,7 +150,7 @@ def _git_revision(root: Path) -> str | None:
         value = value.strip()
         return value if OBJECT_ID.fullmatch(value) else None
 
-    packed = _read_git_file(git_dir / "packed-refs", MAX_PACKED_REFS_BYTES)
+    packed = _read_git_file(refs_dir / "packed-refs", MAX_PACKED_REFS_BYTES)
     if packed is not None:
         for line in packed.splitlines():
             if line.endswith(f" {reference}"):
@@ -151,6 +187,7 @@ def _scan(args: argparse.Namespace) -> int:
             scanner=args.scanner,
             max_total_bytes=args.max_total_bytes,
             max_depth=args.max_depth,
+            timeout_seconds=args.timeout,
         )
     except (OSError, ScopeError) as error:
         print(f"error: {_printable(str(error))}", file=sys.stderr)

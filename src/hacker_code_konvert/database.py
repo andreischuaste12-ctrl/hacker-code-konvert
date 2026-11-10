@@ -26,9 +26,15 @@ def database_metadata(root: Path, max_age_days: int = 30) -> tuple[dict[str, Any
         entry: dict[str, Any] = {"path": archive.relative_to(root).as_posix(), "sha256": checksum}
         record = archive.with_name("provenance.json")
         if record.exists():
-            if record.stat().st_size > 65536:
+            with record.open("rb") as stream:
+                data = stream.read(65537)
+            if len(data) > 65536:
                 raise ValueError("Database provenance is oversized")
-            provenance = json.loads(record.read_text())
+            provenance = json.loads(data)
+            if not isinstance(provenance, dict):
+                raise ValueError("Database provenance must be an object")
+            if not isinstance(provenance.get("retrieved_at"), str):
+                raise ValueError("Database provenance requires a retrieved_at timestamp")
             if provenance.get("sha256") != checksum:
                 raise ValueError("Offline database digest does not match provenance")
             retrieved = datetime.fromisoformat(provenance["retrieved_at"])

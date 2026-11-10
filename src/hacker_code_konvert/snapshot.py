@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+import time
 from pathlib import Path
 
 from hacker_code_konvert.formats import (
@@ -35,17 +36,40 @@ def capture(
     scanner: str = "all",
     max_total_bytes: int = 256 * 1024**2,
     max_depth: int = 64,
+    timeout_seconds: float = 60,
 ) -> Inventory:
     inventory = Inventory()
     inventory.snapshot_root = destination
     destination.mkdir(mode=0o700)
 
+    deadline = time.monotonic() + timeout_seconds
+    # Count every visited entry, including links, ignored directories and devices.
+    remaining_entries = max_files * 2
+
+    def names_for(descriptor: int) -> list[str]:
+        names: list[str] = []
+        with os.scandir(descriptor) as entries:
+            for entry in entries:
+                if time.monotonic() >= deadline:
+                    raise ScopeError("repository capture exceeded its time limit")
+                if len(names) >= remaining_entries:
+                    raise ScopeError("repository exceeds maximum traversal entry count")
+                names.append(entry.name)
+        return sorted(names)
+
     directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    stack = [(directory, "", iter(sorted(os.listdir(directory))), 0)]
+    try:
+        initial_names = names_for(directory)
+    except BaseException:
+        os.close(directory)
+        raise
+    stack = [(directory, "", iter(initial_names), 0)]
     total_bytes = 0
     directory_count = 0
     try:
         while stack:
+            if time.monotonic() >= deadline:
+                raise ScopeError("repository capture exceeded its time limit")
             directory, prefix, names, depth = stack[-1]
             try:
                 name = next(names)
@@ -53,6 +77,9 @@ def capture(
                 os.close(directory)
                 stack.pop()
                 continue
+            remaining_entries -= 1
+            if remaining_entries < 0:
+                raise ScopeError("repository exceeds maximum traversal entry count")
             if name == ".git":
                 # Only reachable at the root: a directory holding .git is never entered below.
                 continue
@@ -68,7 +95,7 @@ def capture(
                         descriptor = os.open(
                             name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory
                         )
-                        entries = sorted(os.listdir(descriptor))
+                        entries = names_for(descriptor)
                     except OSError as error:
                         _gap(inventory, relative, f"unreadable directory: {type(error).__name__}")
                         continue
@@ -137,6 +164,8 @@ def capture(
                 chunks = [head] if head else []
                 size = len(head)
                 while size <= max_file_bytes and total_bytes + size <= max_total_bytes:
+                    if time.monotonic() >= deadline:
+                        raise ScopeError("repository capture exceeded its time limit")
                     chunk = os.read(descriptor, min(READ_CHUNK_BYTES, max_file_bytes + 1 - size))
                     if not chunk:
                         break
@@ -150,7 +179,7 @@ def capture(
                     # The pointer grammar cannot carry code or credentials, but the object it names
                     # is absent. That is a coverage gap when the scanner needed that content.
                     inventory.skipped.append(SkippedEntry(relative, "Git LFS pointer; content unavailable"))
-                    if language or dependency:
+                    if language or dependency or scanner in ("all", "gitleaks"):
                         inventory.incomplete = True
                     continue
                 neutral = f"f{len(inventory.snapshot_paths):06d}{neutral_suffix(name, language)}"

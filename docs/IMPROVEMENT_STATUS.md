@@ -55,3 +55,17 @@ limitations. See OPERATIONS.md before enabling release publication or applying r
 | Socket filter bypass through upper register bits | Fixed: only `AF_UNIX` is allowed |
 | Two inventory implementations | Fixed: one capture implementation, used by the CLI and the tests |
 | Unprotected `main`, no signed release | Open: requires the repository administrator and the maintainer's signing key (see OPERATIONS.md) |
+
+## Follow-up to the audit of `e6971e2`
+
+All eight reproduced findings are addressed in the working implementation: context-specific URL
+attribute checks and conservative SQL/SSRF sanitizers; invalidation of stale run markers with
+serialized report writers; LFS gaps for every secret-scan input; bounded traversal and capture
+deadlines; controlled database provenance errors; and verified linked-worktree metadata support.
+The rule pack now has 34 rules (19 Python, 15 PHP). Regression fixtures include the audit's escaped
+SQL expression, HTML URL attribute and encoded outbound hostname, with safe neighboring inputs.
+
+The copyright notice identifies Andrei Schuaste, including the LICENSE appendix example.
+Administrative GitHub settings, release signing identity, accepted scanner dependency advisories,
+and the documented limits of static analysis remain operational prerequisites, not properties that
+these source changes can certify or eliminate.

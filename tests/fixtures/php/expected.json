@@ -67,6 +67,14 @@
     {
       "rule_id": "hck.php.sql-injection",
       "path": "woocommerce.phtml"
+    },
+    {
+      "rule_id": "hck.php.unsafe-url-attribute",
+      "path": "url_attribute_bad.php"
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "sql_escaped_expression_bad.php"
     }
   ]
 }

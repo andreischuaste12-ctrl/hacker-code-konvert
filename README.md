@@ -12,7 +12,7 @@ The planned approach combines code analysis, security auditing, and automated to
 
 The project provides a local end-to-end MVP: repository inventory, isolated Semgrep analysis of Python and PHP files, offline dependency and secret scanning, executable finding validation, and Markdown, JSON and SARIF reporting. Scanner findings remain candidates until independently reviewed.
 
-The rule pack is a small, reviewed set (19 Python and 14 PHP/WordPress rules). A completed run means that the requested checks finished on the selected files, not that the analyzed repository is secure.
+The rule pack is a small, reviewed set (19 Python and 15 PHP/WordPress rules). A completed run means that the requested checks finished on the selected files, not that the analyzed repository is secure.
 
 ## Planned Capabilities
 
@@ -137,7 +137,7 @@ Licensed under the [Apache License 2.0](LICENSE).
 
 ## Version 0.2.0 additions
 
-The bundled original rules cover 19 Python classes and 14 PHP/WordPress classes. Rules, hashes,
+The bundled original rules cover 19 Python classes and 15 PHP/WordPress classes. Rules, hashes,
 selected-file hashes, scanner versions, Python version and actual isolation appear in `run.json`.
 Coverage completion describes the requested checks only. The synthetic corpora, including one written
 before the rules were extended, are not a real-world accuracy estimate (see [Quality](docs/QUALITY.md)). See [the implementation status](docs/IMPROVEMENT_STATUS.md) for external prerequisites.
