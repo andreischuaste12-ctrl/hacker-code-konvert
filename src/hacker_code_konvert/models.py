@@ -16,6 +16,8 @@ class Inventory:
     incomplete: bool = False
     snapshot_root: Path | None = None
     snapshot_paths: dict[str, str] = field(default_factory=dict)
+    # Supported language of each selected source file, keyed by repository-relative path.
+    source_languages: dict[str, str] = field(default_factory=dict)
     regular_files: list[str] = field(default_factory=list)
     files_seen: int = 0
     bytes_seen: int = 0
@@ -29,6 +31,7 @@ class Inventory:
         result = asdict(self)
         result.pop("snapshot_root", None)
         result.pop("snapshot_paths", None)
+        result.pop("source_languages", None)
         return result
 
 
@@ -43,10 +46,15 @@ class ScannerResult:
     command: list[str] = field(default_factory=list)
     # Facts about the isolation that was actually applied; empty when no sandbox was started.
     sandbox: dict[str, Any] = field(default_factory=dict)
-    # Files the scanner reported as analyzed, used to prove coverage; None when not applicable.
+    # Files the scanner reported as analyzed, used to prove coverage; None when the scanner does not
+    # report per-file coverage or when not applicable.
     files_scanned: int | None = None
+    # Files handed to the scanner in the staged tree.
+    files_submitted: int | None = None
     input_hashes: dict[str, str] = field(default_factory=dict)
     database: dict[str, Any] = field(default_factory=dict)
+    # Scanner-specific coverage measurements, for example packages evaluated by a dependency scan.
+    coverage: dict[str, Any] = field(default_factory=dict)
     limitations: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

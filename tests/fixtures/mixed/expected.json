@@ -1,0 +1,152 @@
+{
+  "expected": [
+    {
+      "rule_id": "hck.python.shell-system",
+      "path": "app.py",
+      "line": 12
+    },
+    {
+      "rule_id": "hck.python.shell-subprocess",
+      "path": "app.py",
+      "line": 13
+    },
+    {
+      "rule_id": "hck.python.unsafe-pickle",
+      "path": "app.py",
+      "line": 14
+    },
+    {
+      "rule_id": "hck.python.path-traversal",
+      "path": "app.py",
+      "line": 14
+    },
+    {
+      "rule_id": "hck.python.tls-verification-disabled",
+      "path": "app.py",
+      "line": 15
+    },
+    {
+      "rule_id": "hck.python.unsafe-yaml-load",
+      "path": "app.py",
+      "line": 16
+    },
+    {
+      "rule_id": "hck.python.shell-subprocess",
+      "path": "app.py",
+      "line": 17
+    },
+    {
+      "rule_id": "hck.python.path-traversal",
+      "path": "app.py",
+      "line": 18
+    },
+    {
+      "rule_id": "hck.python.server-side-request-forgery",
+      "path": "app.py",
+      "line": 19
+    },
+    {
+      "rule_id": "hck.python.sql-injection",
+      "path": "app.py",
+      "line": 20
+    },
+    {
+      "rule_id": "hck.python.sql-injection",
+      "path": "app.py",
+      "line": 23
+    },
+    {
+      "rule_id": "hck.python.unsafe-pickle",
+      "path": "app.py",
+      "line": 25
+    },
+    {
+      "rule_id": "hck.python.hardcoded-credential",
+      "path": "app.py",
+      "line": 26
+    },
+    {
+      "rule_id": "hck.python.hardcoded-credential",
+      "path": "app.py",
+      "line": 27
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "plugin.php",
+      "line": 2
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "plugin.php",
+      "line": 3
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "plugin.php",
+      "line": 4
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "plugin.php",
+      "line": 5
+    },
+    {
+      "rule_id": "hck.php.unescaped-output",
+      "path": "plugin.php",
+      "line": 6
+    },
+    {
+      "rule_id": "hck.php.unescaped-output",
+      "path": "plugin.php",
+      "line": 7
+    },
+    {
+      "rule_id": "hck.php.unescaped-output",
+      "path": "plugin.php",
+      "line": 8
+    },
+    {
+      "rule_id": "hck.php.code-injection",
+      "path": "plugin.php",
+      "line": 9
+    },
+    {
+      "rule_id": "hck.php.command-injection",
+      "path": "plugin.php",
+      "line": 10
+    },
+    {
+      "rule_id": "hck.php.object-injection",
+      "path": "plugin.php",
+      "line": 11
+    },
+    {
+      "rule_id": "hck.php.file-inclusion",
+      "path": "plugin.php",
+      "line": 12
+    },
+    {
+      "rule_id": "hck.php.unrestricted-upload",
+      "path": "plugin.php",
+      "line": 13
+    },
+    {
+      "rule_id": "hck.php.public-ajax-handler",
+      "path": "plugin.php",
+      "line": 14
+    },
+    {
+      "rule_id": "hck.php.request-data-persisted",
+      "path": "plugin.php",
+      "line": 15
+    }
+  ],
+  "known_gaps": [
+    {
+      "rule_id": "hck.python.shell-system",
+      "path": "app.py",
+      "line": 24,
+      "reason": "The sink is reached through __import__('os'), which the pattern does not resolve to os.system."
+    }
+  ]
+}

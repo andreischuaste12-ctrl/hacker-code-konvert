@@ -21,12 +21,15 @@ def test_single_pass_capture_is_independent_of_later_source_changes(tmp_path: Pa
     (root / "vendor/.git").write_text("gitdir: elsewhere")
     (root / "vendor/x.py").write_text("not in scope")
     (root / "big.py").write_bytes(b"x" * 101)
-    (root / "lfs.py").write_bytes(b"version https://git-lfs.github.com/spec/v1\n")
+    (root / "lfs.py").write_bytes(
+        b"version https://git-lfs.github.com/spec/v1\noid sha256:" + b"a" * 64 + b"\nsize 7\n"
+    )
     (root / "package-lock.json").write_text("{}")
     inventory = build_inventory(root, snapshot=tmp_path / "capture", max_file_bytes=100)
     assert inventory.scan_files == ["nested/a.py"]
     assert inventory.manifests == ["package-lock.json"]
     assert len(inventory.skipped) == 5
+    assert inventory.incomplete
     (root / "nested/a.py").write_text("modified")
     mapping = stage_neutral_files(root, inventory, tmp_path / "stage", max_file_bytes=100)
     assert (tmp_path / "stage" / next(iter(mapping))).read_text() == "eval(input())"

@@ -111,6 +111,15 @@ def test_schema_and_validator_agree_on_review_invariants() -> None:
         "validated with an open gate": (one_gate_open, False),
         "accepted risk reviewed": (_accepted_risk(), True),
         "accepted risk unreviewed": (_accepted_risk(human_reviewed=False), False),
+        "false positive reviewed": ({**_accepted_risk(), "status": "false_positive"}, True),
+        "false positive unreviewed": (
+            {**_accepted_risk(human_reviewed=False), "status": "false_positive"},
+            False,
+        ),
+        "false positive without reviewer": (
+            {**_accepted_risk(reviewer=""), "status": "false_positive"},
+            False,
+        ),
     }
     for name, (finding, expected) in cases.items():
         assert _schema_accepts(copy.deepcopy(finding)) is expected, f"schema: {name}"

@@ -1,0 +1,3 @@
+<?php
+// Selected by suffix even though it is not .php.
+$order = $wpdb->get_row('SELECT * FROM wc_orders WHERE id=' . $_GET['order_id']);

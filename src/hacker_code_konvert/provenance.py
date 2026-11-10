@@ -5,13 +5,14 @@ import re
 from importlib.resources import files
 from typing import Any
 
+from hacker_code_konvert.findings import assign_identity
 from hacker_code_konvert.textsafety import has_unsafe_characters
 
 
 def rules_metadata(scanner: str = "semgrep") -> dict[str, Any]:
     if scanner == "osv-scanner":
         return {"ids": [], "count": 0, "sha256": None, "kind": "offline advisory database"}
-    filename = "gitleaks.toml" if scanner == "gitleaks" else "python-security.yml"
+    filename = "gitleaks.toml" if scanner == "gitleaks" else "semgrep-rules.yml"
     data = files("hacker_code_konvert").joinpath(f"data/{filename}").read_bytes()
     pattern = r'^id = "(.+)"$' if scanner == "gitleaks" else r"^  - id: (.+)$"
     ids = re.findall(pattern, data.decode(), re.MULTILINE)
@@ -48,9 +49,5 @@ def translate_paths(findings: list[dict[str, Any]], mapping: dict[str, str]) -> 
             and not re.match(r"^[A-Za-z]:", original)
         ):
             location["path"] = original
-        digest = hashlib.sha256(
-            f"{finding['sources'][0]['rule_id']}\0{location['original_path_bytes_hex']}\0"
-            f"{location['start_line']}\0{location['end_line']}".encode()
-        ).hexdigest()
-        finding["fingerprint"] = f"sha256:{digest}"
-        finding["id"] = f"HCK-{digest[:12].upper()}"
+        # Identity follows the original path, never the run-specific neutral staging name.
+        assign_identity(finding, location["original_path_bytes_hex"])

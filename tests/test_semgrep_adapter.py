@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from hacker_code_konvert.inventory import ScopeError, build_inventory, stage_scan_files
+from hacker_code_konvert.inventory import ScopeError, build_inventory, stage_neutral_files
 from hacker_code_konvert.semgrep_adapter import (
     _error_excerpt,
     _safe_relative_path,
@@ -80,12 +80,12 @@ def test_bundled_semgrep_rules_ignore_target_suppressions(require_semgrep) -> No
     assert executable
     fixture = Path(__file__).parent / "fixtures/python"
     inventory = build_inventory(fixture)
-    rules = Path(str(files("hacker_code_konvert").joinpath("data/python-security.yml")))
+    rules = Path(str(files("hacker_code_konvert").joinpath("data/semgrep-rules.yml")))
     with tempfile.TemporaryDirectory() as temporary:
         staged = Path(temporary) / "target"
         home = Path(temporary) / "home"
         home.mkdir()
-        stage_scan_files(fixture, inventory, staged, max_file_bytes=1_000_000)
+        mapping = stage_neutral_files(fixture, inventory, staged, max_file_bytes=1_000_000)
         result = subprocess.run(
             [
                 executable,
@@ -107,7 +107,7 @@ def test_bundled_semgrep_rules_ignore_target_suppressions(require_semgrep) -> No
         )
     assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
     findings = normalize_semgrep(json.loads(result.stdout), "test")
-    observed = {(item["sources"][0]["rule_id"], item["location"]["path"]) for item in findings}
+    observed = {(item["sources"][0]["rule_id"], mapping[item["location"]["path"]]) for item in findings}
     assert observed == EXPECTED_FIXTURE_FINDINGS
 
 
@@ -137,7 +137,7 @@ def test_recorded_command_matches_what_is_executed() -> None:
     assert recorded[0] == "semgrep"
     assert "--offline" not in recorded  # this flag was recorded before although it was never passed
     assert recorded[1:] == [
-        {"/rules/python-security.yml": "<bundled-python-rules>", "/target": "<staged-target>"}.get(item, item)
+        {"/rules/semgrep-rules.yml": "<bundled-rules>", "/target": "<staged-target>"}.get(item, item)
         for item in arguments
     ]
     for required in ("--disable-nosem", "--no-git-ignore", "--metrics=off", "--disable-version-check"):
@@ -247,7 +247,7 @@ def test_staging_failure_is_reported_as_failed_not_raised(tmp_path: Path, monkey
     def refuse(*args, **kwargs):
         raise PermissionError(13, "Permission denied", str(repository / "app.py"))
 
-    monkeypatch.setattr("hacker_code_konvert.semgrep_adapter.stage_scan_files", refuse)
+    monkeypatch.setattr("hacker_code_konvert.semgrep_adapter.stage_neutral_files", refuse)
     result = run_semgrep(
         repository,
         build_inventory(repository),
@@ -268,7 +268,7 @@ def test_cli_turns_a_staging_failure_into_an_incomplete_run(tmp_path: Path, monk
     repository.mkdir()
     (repository / "app.py").write_text("x = 1\n", encoding="utf-8")
     monkeypatch.setattr(
-        "hacker_code_konvert.semgrep_adapter.stage_scan_files",
+        "hacker_code_konvert.semgrep_adapter.stage_neutral_files",
         lambda *a, **k: (_ for _ in ()).throw(ScopeError("file changed type during staging: app.py")),
     )
     output = tmp_path / "report"

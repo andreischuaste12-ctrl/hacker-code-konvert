@@ -51,6 +51,62 @@
     {
       "rule_id": "hck.python.unsafe-yaml-load",
       "path": "yaml_bad.py"
+    },
+    {
+      "rule_id": "hck.python.unsafe-pickle",
+      "path": "unsafe_pickle_load_bad.py"
+    },
+    {
+      "rule_id": "hck.python.unsafe-yaml-load",
+      "path": "yaml_unsafe_load_bad.py"
+    },
+    {
+      "rule_id": "hck.python.tls-verification-disabled",
+      "path": "tls_session_bad.py"
+    },
+    {
+      "rule_id": "hck.python.jwt-verification-disabled",
+      "path": "jwt_verification_bad.py"
+    },
+    {
+      "rule_id": "hck.python.flask-debug-enabled",
+      "path": "flask_debug_bad.py"
+    },
+    {
+      "rule_id": "hck.python.hardcoded-credential",
+      "path": "hardcoded_credential_prefixed_bad.py"
+    },
+    {
+      "rule_id": "hck.python.shell-system",
+      "path": "shell_system_alias_bad.py"
+    },
+    {
+      "rule_id": "hck.python.shell-subprocess",
+      "path": "shell_subprocess_interpreter_bad.py"
+    },
+    {
+      "rule_id": "hck.python.subprocess-tainted-program",
+      "path": "subprocess_program_bad.py"
+    },
+    {
+      "rule_id": "hck.python.sql-injection",
+      "path": "sql_injection_cookie_bad.py"
+    },
+    {
+      "rule_id": "hck.python.path-traversal",
+      "path": "path_traversal_bad.py"
+    },
+    {
+      "rule_id": "hck.python.server-side-request-forgery",
+      "path": "ssrf_bad.py"
+    },
+    {
+      "rule_id": "hck.python.template-injection",
+      "path": "template_injection_bad.py"
+    },
+    {
+      "rule_id": "hck.python.open-redirect",
+      "path": "open_redirect_bad.py"
     }
   ]
 }

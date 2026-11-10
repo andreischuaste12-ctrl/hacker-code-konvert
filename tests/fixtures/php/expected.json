@@ -1,5 +1,72 @@
-{"expected": [
-{"rule_id":"hck.php.public-ajax-handler","path":"vulnerable.php"},
-{"rule_id":"hck.php.wpdb-injection","path":"vulnerable.php"},
-{"rule_id":"hck.php.unescaped-output","path":"vulnerable.php"}
-]}
+{
+  "expected": [
+    {
+      "rule_id": "hck.php.public-ajax-handler",
+      "path": "vulnerable.php"
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "vulnerable.php"
+    },
+    {
+      "rule_id": "hck.php.unescaped-output",
+      "path": "vulnerable.php"
+    },
+    {
+      "rule_id": "hck.php.rest-route-without-permission-check",
+      "path": "rest_route_bad.php"
+    },
+    {
+      "rule_id": "hck.php.unrestricted-upload",
+      "path": "upload_bad.php"
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "sql_injection_bad.php"
+    },
+    {
+      "rule_id": "hck.php.unescaped-output",
+      "path": "unescaped_output_bad.php"
+    },
+    {
+      "rule_id": "hck.php.code-injection",
+      "path": "code_injection_bad.php"
+    },
+    {
+      "rule_id": "hck.php.command-injection",
+      "path": "command_injection_bad.php"
+    },
+    {
+      "rule_id": "hck.php.object-injection",
+      "path": "object_injection_bad.php"
+    },
+    {
+      "rule_id": "hck.php.file-inclusion",
+      "path": "file_inclusion_bad.php"
+    },
+    {
+      "rule_id": "hck.php.path-traversal",
+      "path": "path_traversal_bad.php"
+    },
+    {
+      "rule_id": "hck.php.server-side-request-forgery",
+      "path": "ssrf_bad.php"
+    },
+    {
+      "rule_id": "hck.php.open-redirect",
+      "path": "open_redirect_bad.php"
+    },
+    {
+      "rule_id": "hck.php.request-data-persisted",
+      "path": "request_data_persisted_bad.php"
+    },
+    {
+      "rule_id": "hck.php.variable-overwrite",
+      "path": "variable_overwrite_bad.php"
+    },
+    {
+      "rule_id": "hck.php.sql-injection",
+      "path": "woocommerce.phtml"
+    }
+  ]
+}

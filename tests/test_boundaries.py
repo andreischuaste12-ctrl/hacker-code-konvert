@@ -137,9 +137,8 @@ def test_positive_integer_arguments_reject_zero(tmp_path: Path):
 
 
 def test_probe_and_descriptor_errors(tmp_path: Path, monkeypatch):
-    from hacker_code_konvert.inventory import _opened_path_is_within, _probe_file
+    from hacker_code_konvert.inventory import _opened_path_is_within
 
-    assert _probe_file(tmp_path / "absent") == "unreadable"
     monkeypatch.setattr(
         "hacker_code_konvert.inventory.os.readlink", lambda *a: (_ for _ in ()).throw(OSError())
     )
@@ -201,11 +200,15 @@ def test_external_empty_input_and_malformed_output(tmp_path: Path, monkeypatch):
         run_external("gitleaks", tmp_path, build_inventory(tmp_path), **options).status == "partial_coverage"
     )
     (tmp_path / "config.txt").write_text("safe")
-    monkeypatch.setattr(
-        "hacker_code_konvert.external.run_limited", lambda *a, **k: CommandResult(0, b"{}", b"", 1)
-    )
-    assert run_external("gitleaks", tmp_path, build_inventory(tmp_path), **options).status == "failed"
-    monkeypatch.setattr(
-        "hacker_code_konvert.external.run_limited", lambda *a, **k: CommandResult(2, b"", b"failed", 1)
-    )
-    assert run_external("gitleaks", tmp_path, build_inventory(tmp_path), **options).status == "failed"
+    for output, expected in (
+        (CommandResult(0, b"{}", b"", 1), "malformed_output"),
+        (CommandResult(0, b"not json", b"", 1), "malformed_output"),
+        (CommandResult(0, b'[{"RuleID": "x"}]', b"", 1), "malformed_output"),
+        (CommandResult(2, b"", b"failed", 1), "failed"),
+        (CommandResult(0, b"", b"", 1, timed_out=True), "timeout"),
+        (CommandResult(0, b"", b"", 1, output_limited=True), "output_limited"),
+    ):
+        monkeypatch.setattr("hacker_code_konvert.external.run_limited", lambda *a, _o=output, **k: _o)
+        result = run_external("gitleaks", tmp_path, build_inventory(tmp_path), **options)
+        assert result.status == expected, result.errors
+        assert result.errors and not result.findings

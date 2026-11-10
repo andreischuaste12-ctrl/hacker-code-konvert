@@ -239,7 +239,10 @@
       "if": {
         "properties": {
           "status": {
-            "const": "accepted_risk"
+            "enum": [
+              "accepted_risk",
+              "false_positive"
+            ]
           }
         },
         "required": [

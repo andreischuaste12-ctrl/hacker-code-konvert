@@ -97,3 +97,21 @@ def osv_severity(vulnerability: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         "severity_assessed": False,
         "reason": "No supported CVSS score; human assessment required",
     }
+
+
+def fixed_versions(vulnerability: dict[str, Any], name: str, ecosystem: str) -> list[str]:
+    """Fixed versions the advisory records for one package, in the order the database lists them."""
+    versions: list[str] = []
+    for affected in vulnerability.get("affected", []):
+        package = affected.get("package", {}) if isinstance(affected, dict) else {}
+        if (
+            str(package.get("name", "")).lower() != name.lower()
+            or str(package.get("ecosystem", "")).split(":")[0].lower() != ecosystem.split(":")[0].lower()
+        ):
+            continue
+        for version_range in affected.get("ranges", []):
+            for event in version_range.get("events", []) if isinstance(version_range, dict) else []:
+                fixed = event.get("fixed") if isinstance(event, dict) else None
+                if isinstance(fixed, str) and fixed not in versions:
+                    versions.append(fixed)
+    return versions

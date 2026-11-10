@@ -1,0 +1,603 @@
+rules:
+  # ----------------------------------------------------------------------------------------------
+  # Python
+  # ----------------------------------------------------------------------------------------------
+  - id: hck.python.dangerous-eval
+    languages: [python]
+    severity: ERROR
+    message: Dynamic evaluation can execute attacker-controlled Python code.
+    metadata:
+      cwe: [CWE-95]
+      owasp: [A03:2021-Injection]
+    pattern: eval(...)
+
+  - id: hck.python.dangerous-exec
+    languages: [python]
+    severity: WARNING
+    message: Dynamic execution of a string can run attacker-controlled Python code.
+    metadata:
+      cwe: [CWE-95]
+      owasp: [A03:2021-Injection]
+    pattern: exec(...)
+
+  - id: hck.python.unsafe-yaml-load
+    languages: [python]
+    severity: WARNING
+    message: YAML loading without a safe loader can construct arbitrary Python objects.
+    metadata:
+      cwe: [CWE-502]
+      owasp: [A08:2021-Software and Data Integrity Failures]
+    patterns:
+      - pattern-either:
+          - pattern: yaml.load(...)
+          - pattern: yaml.load_all(...)
+          - pattern: yaml.unsafe_load(...)
+          - pattern: yaml.unsafe_load_all(...)
+      - pattern-not: yaml.$F(..., Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.$F(..., Loader=yaml.CSafeLoader, ...)
+      - pattern-not: yaml.$F(..., Loader=yaml.BaseLoader, ...)
+      - pattern-not: yaml.$F(..., Loader=SafeLoader, ...)
+      - pattern-not: yaml.$F(..., Loader=CSafeLoader, ...)
+      - pattern-not: yaml.$F(..., yaml.SafeLoader, ...)
+      - pattern-not: yaml.$F(..., yaml.CSafeLoader, ...)
+
+  - id: hck.python.unsafe-pickle
+    languages: [python]
+    severity: WARNING
+    message: Deserializing untrusted data with a pickle-compatible format can execute code.
+    metadata:
+      cwe: [CWE-502]
+      owasp: [A08:2021-Software and Data Integrity Failures]
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: pickle.Unpickler(...)
+      - pattern: cPickle.loads(...)
+      - pattern: cPickle.load(...)
+      - pattern: dill.loads(...)
+      - pattern: dill.load(...)
+      - pattern: marshal.loads(...)
+      - pattern: marshal.load(...)
+      - pattern: shelve.open(...)
+      - pattern: jsonpickle.decode(...)
+      - pattern: pandas.read_pickle(...)
+
+  - id: hck.python.weak-hash
+    languages: [python]
+    severity: WARNING
+    message: Weak hash API; verify whether it protects passwords or other security-sensitive data.
+    metadata:
+      cwe: [CWE-327]
+      owasp: [A02:2021-Cryptographic Failures]
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+          - pattern: hashlib.new("md5", ...)
+          - pattern: hashlib.new("sha1", ...)
+      - pattern-not: hashlib.md5(..., usedforsecurity=False, ...)
+      - pattern-not: hashlib.sha1(..., usedforsecurity=False, ...)
+      - pattern-not: hashlib.new(..., usedforsecurity=False, ...)
+
+  - id: hck.python.tls-verification-disabled
+    languages: [python]
+    severity: WARNING
+    message: TLS certificate verification is disabled, which permits interception of the connection.
+    metadata:
+      cwe: [CWE-295]
+      owasp: [A02:2021-Cryptographic Failures]
+    patterns:
+      - pattern-either:
+          - pattern: $FUNC(..., verify=False, ...)
+          - pattern: ssl._create_unverified_context(...)
+          - pattern: $CONTEXT.verify_mode = ssl.CERT_NONE
+          - pattern: $CONTEXT.check_hostname = False
+      - pattern-not: jwt.decode(...)
+
+  - id: hck.python.jwt-verification-disabled
+    languages: [python]
+    severity: ERROR
+    message: The token signature is not verified, so its claims can be forged.
+    metadata:
+      cwe: [CWE-347]
+      owasp: [A07:2021-Identification and Authentication Failures]
+    pattern-either:
+      - pattern: jwt.decode(..., verify=False, ...)
+      - pattern: 'jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - pattern: jwt.get_unverified_claims(...)
+
+  - id: hck.python.insecure-tempfile
+    languages: [python]
+    severity: WARNING
+    message: tempfile.mktemp returns a name that another process can claim before the file is created.
+    metadata:
+      cwe: [CWE-377]
+    pattern: tempfile.mktemp(...)
+
+  - id: hck.python.assert-authorization
+    languages: [python]
+    severity: WARNING
+    message: Authorization enforced with assert disappears when Python runs with optimizations.
+    metadata:
+      cwe: [CWE-617]
+      owasp: [A01:2021-Broken Access Control]
+    pattern-either:
+      - pattern: assert $USER.is_admin
+      - pattern: assert $USER.is_staff
+      - pattern: assert $USER.is_superuser
+      - pattern: assert $USER.is_authenticated
+      - pattern: assert $USER.has_perm(...)
+
+  - id: hck.python.flask-debug-enabled
+    languages: [python]
+    severity: WARNING
+    message: The development server runs with debug mode, which exposes an interactive code console.
+    metadata:
+      cwe: [CWE-489]
+      owasp: [A05:2021-Security Misconfiguration]
+    pattern: $APP.run(..., debug=True, ...)
+
+  - id: hck.python.hardcoded-credential
+    languages: [python]
+    severity: WARNING
+    message: A credential-like variable contains a literal; review and rotate if real.
+    metadata:
+      cwe: [CWE-798]
+      owasp: [A07:2021-Identification and Authentication Failures]
+    patterns:
+      - pattern: $NAME = $VALUE
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i)^(\w+_)?(password|passwd|api_?key|secret|secret_key|access_token|auth_token|private_key)$
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: ^["'][^"']{8,}["']$
+
+  - id: hck.python.shell-system
+    languages: [python]
+    severity: ERROR
+    message: Untrusted input reaches a shell command; contextual review is required.
+    metadata:
+      cwe: [CWE-78]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: &python_sources
+      - pattern: input(...)
+      - pattern: sys.argv
+      - pattern: os.environ
+      - pattern: os.getenv(...)
+      - patterns:
+          - pattern-either:
+              - pattern: request.$ATTRIBUTE
+              - pattern: flask.request.$ATTRIBUTE
+              - pattern: self.request.$ATTRIBUTE
+          - metavariable-regex:
+              metavariable: $ATTRIBUTE
+              regex: ^(args|form|values|json|data|cookies|headers|files|GET|POST|COOKIES|META|FILES|body|query_params|path_params|query_string|url|path|full_path|view_args|match_info|query|get_json|get_data)$
+    pattern-sinks:
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+      - pattern: subprocess.getoutput(...)
+      - pattern: subprocess.getstatusoutput(...)
+
+  - id: hck.python.shell-subprocess
+    languages: [python]
+    severity: ERROR
+    message: Untrusted input reaches a subprocess started through a shell; contextual review is required.
+    metadata:
+      cwe: [CWE-78]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *python_sources
+    pattern-sinks:
+      - patterns:
+          - pattern: subprocess.$FUNC($COMMAND, ..., shell=True, ...)
+          - focus-metavariable: $COMMAND
+      - patterns:
+          - pattern: asyncio.create_subprocess_shell($COMMAND, ...)
+          - focus-metavariable: $COMMAND
+      - patterns:
+          - pattern: subprocess.$FUNC([$SHELL, "-c", $COMMAND, ...], ...)
+          - metavariable-regex:
+              metavariable: $SHELL
+              regex: ^["'](/usr)?(/bin/)?(sh|bash|dash|zsh|ksh)["']$
+          - focus-metavariable: $COMMAND
+
+  - id: hck.python.subprocess-tainted-program
+    languages: [python]
+    severity: WARNING
+    message: Untrusted input chooses the program that a subprocess runs; contextual review is required.
+    metadata:
+      cwe: [CWE-78]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *python_sources
+    pattern-sinks:
+      - patterns:
+          - pattern: subprocess.$FUNC([$PROGRAM, ...], ...)
+          - focus-metavariable: $PROGRAM
+      - patterns:
+          - pattern: subprocess.$FUNC($PROGRAM, ...)
+          - pattern-not: subprocess.$FUNC([...], ...)
+          - pattern-not: subprocess.$FUNC(..., shell=True, ...)
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(run|call|check_call|check_output|Popen)$
+          - focus-metavariable: $PROGRAM
+
+  - id: hck.python.sql-injection
+    languages: [python]
+    severity: ERROR
+    message: Untrusted input reaches the text of a SQL statement; contextual review is required.
+    metadata:
+      cwe: [CWE-89]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *python_sources
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $CURSOR.execute($QUERY, ...)
+              - pattern: $CURSOR.executemany($QUERY, ...)
+              - pattern: $CURSOR.executescript($QUERY, ...)
+              - pattern: $MANAGER.raw($QUERY, ...)
+          - focus-metavariable: $QUERY
+
+  - id: hck.python.path-traversal
+    languages: [python]
+    severity: WARNING
+    message: Untrusted input reaches a file-system path; review for path traversal.
+    metadata:
+      cwe: [CWE-22]
+      owasp: [A01:2021-Broken Access Control]
+    mode: taint
+    pattern-sources: *python_sources
+    pattern-sanitizers:
+      - pattern: os.path.basename(...)
+      - pattern: secure_filename(...)
+      - pattern: werkzeug.utils.secure_filename(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: open($PATH, ...)
+              - pattern: os.remove($PATH)
+              - pattern: os.unlink($PATH)
+              - pattern: shutil.rmtree($PATH, ...)
+              - pattern: send_file($PATH, ...)
+              - pattern: flask.send_file($PATH, ...)
+          - focus-metavariable: $PATH
+
+  - id: hck.python.server-side-request-forgery
+    languages: [python]
+    severity: WARNING
+    message: Untrusted input chooses the destination of an outbound request; review for SSRF.
+    metadata:
+      cwe: [CWE-918]
+      owasp: [A10:2021-Server-Side Request Forgery]
+    mode: taint
+    pattern-sources: *python_sources
+    pattern-sanitizers:
+      - pattern: urllib.parse.quote(...)
+      - pattern: urllib.parse.quote_plus(...)
+      - pattern: urllib.parse.urlencode(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.$METHOD($URL, ...)
+              - pattern: httpx.$METHOD($URL, ...)
+              - pattern: urllib.request.urlopen($URL, ...)
+          - focus-metavariable: $URL
+
+  - id: hck.python.template-injection
+    languages: [python]
+    severity: ERROR
+    message: Untrusted input is compiled as a template, which can execute code on the server.
+    metadata:
+      cwe: [CWE-1336]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *python_sources
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: render_template_string($TEMPLATE, ...)
+              - pattern: flask.render_template_string($TEMPLATE, ...)
+              - pattern: jinja2.Template($TEMPLATE, ...)
+              - pattern: $ENVIRONMENT.from_string($TEMPLATE, ...)
+          - focus-metavariable: $TEMPLATE
+
+  - id: hck.python.open-redirect
+    languages: [python]
+    severity: WARNING
+    message: Untrusted input chooses a redirect destination; review for open redirect.
+    metadata:
+      cwe: [CWE-601]
+      owasp: [A01:2021-Broken Access Control]
+    mode: taint
+    pattern-sources: *python_sources
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: redirect($URL, ...)
+              - pattern: flask.redirect($URL, ...)
+              - pattern: HttpResponseRedirect($URL, ...)
+          - focus-metavariable: $URL
+
+  # ----------------------------------------------------------------------------------------------
+  # PHP, with WordPress and WooCommerce sinks and escaping functions
+  # ----------------------------------------------------------------------------------------------
+  - id: hck.php.public-ajax-handler
+    languages: [php]
+    severity: WARNING
+    message: Public AJAX registration requires nonce, authorization and rate-limit review.
+    metadata:
+      cwe: [CWE-862]
+      owasp: [A01:2021-Broken Access Control]
+    patterns:
+      - pattern: add_action($HOOK, ...);
+      - metavariable-regex:
+          metavariable: $HOOK
+          regex: .wp_ajax_nopriv_.*
+
+  - id: hck.php.rest-route-without-permission-check
+    languages: [php]
+    severity: WARNING
+    message: The REST route is registered with a permission callback that allows every caller.
+    metadata:
+      cwe: [CWE-862]
+      owasp: [A01:2021-Broken Access Control]
+    pattern-either:
+      - pattern: register_rest_route(..., array(..., 'permission_callback' => '__return_true', ...), ...)
+      - pattern: register_rest_route(..., [..., 'permission_callback' => '__return_true', ...], ...)
+
+  - id: hck.php.unrestricted-upload
+    languages: [php]
+    severity: WARNING
+    message: An uploaded file is stored; review type, extension, destination and authorization checks.
+    metadata:
+      cwe: [CWE-434]
+      owasp: [A04:2021-Insecure Design]
+    pattern: move_uploaded_file(...)
+
+  - id: hck.php.sql-injection
+    languages: [php]
+    severity: ERROR
+    message: Request data reaches the text of a SQL query; contextual review is required.
+    metadata:
+      cwe: [CWE-89]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: &php_sources
+      - pattern: $_GET
+      - pattern: $_POST
+      - pattern: $_REQUEST
+      - pattern: $_COOKIE
+      - pattern: $_FILES
+      - pattern: $_SERVER
+      - pattern: file_get_contents('php://input')
+      - pattern: $REQUEST->get_param(...)
+      - pattern: $REQUEST->get_params(...)
+      - pattern: $REQUEST->get_json_params(...)
+      - pattern: $REQUEST->get_body(...)
+    pattern-sanitizers:
+      - pattern: $DB->prepare($TEMPLATE, $FIRST, ...)
+      - pattern: intval(...)
+      - pattern: absint(...)
+      - pattern: floatval(...)
+      - pattern: (int) $VALUE
+      - pattern: (float) $VALUE
+      - pattern: esc_sql(...)
+      - pattern: sanitize_key(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB->query($QUERY, ...)
+              - pattern: $DB->get_results($QUERY, ...)
+              - pattern: $DB->get_var($QUERY, ...)
+              - pattern: $DB->get_row($QUERY, ...)
+              - pattern: $DB->get_col($QUERY, ...)
+              - pattern: $DB->exec($QUERY, ...)
+              - pattern: $DB->prepare($QUERY, ...)
+              - pattern: mysqli_query($LINK, $QUERY, ...)
+              - pattern: mysql_query($QUERY, ...)
+              - pattern: pg_query(..., $QUERY)
+          - focus-metavariable: $QUERY
+
+  - id: hck.php.unescaped-output
+    languages: [php]
+    severity: WARNING
+    message: Request data reaches HTML output without a recognized contextual escape.
+    metadata:
+      cwe: [CWE-79]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sanitizers:
+      - pattern: esc_html(...)
+      - pattern: esc_attr(...)
+      - pattern: esc_url(...)
+      - pattern: esc_js(...)
+      - pattern: esc_textarea(...)
+      - pattern: wp_kses(...)
+      - pattern: wp_kses_post(...)
+      - pattern: wp_kses_data(...)
+      - pattern: htmlspecialchars(...)
+      - pattern: htmlentities(...)
+      - pattern: sanitize_html_class(...)
+      - pattern: urlencode(...)
+      - pattern: rawurlencode(...)
+      - pattern: intval(...)
+      - pattern: absint(...)
+      - pattern: floatval(...)
+      - pattern: (int) $VALUE
+      - pattern: (float) $VALUE
+    pattern-sinks:
+      - pattern: echo ...;
+      - pattern: print $VALUE;
+      - pattern: printf(...)
+      - pattern: vprintf(...)
+      - pattern: exit($VALUE);
+      - pattern: wp_die($VALUE, ...)
+
+  - id: hck.php.code-injection
+    languages: [php]
+    severity: ERROR
+    message: Request data is evaluated as PHP code.
+    metadata:
+      cwe: [CWE-95]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sinks:
+      - pattern: eval(...)
+      - pattern: assert(...)
+      - pattern: create_function(...)
+      - pattern: call_user_func(...)
+      - pattern: call_user_func_array(...)
+
+  - id: hck.php.command-injection
+    languages: [php]
+    severity: ERROR
+    message: Request data reaches an operating-system command.
+    metadata:
+      cwe: [CWE-78]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sanitizers:
+      - pattern: escapeshellarg(...)
+      - pattern: escapeshellcmd(...)
+    pattern-sinks:
+      - pattern: system(...)
+      - pattern: exec(...)
+      - pattern: shell_exec(...)
+      - pattern: passthru(...)
+      - pattern: popen(...)
+      - pattern: proc_open(...)
+      - pattern: pcntl_exec(...)
+
+  - id: hck.php.object-injection
+    languages: [php]
+    severity: ERROR
+    message: Request data is unserialized, which can instantiate attacker-chosen objects.
+    metadata:
+      cwe: [CWE-502]
+      owasp: [A08:2021-Software and Data Integrity Failures]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sinks:
+      - pattern: unserialize(...)
+      - pattern: maybe_unserialize(...)
+
+  - id: hck.php.file-inclusion
+    languages: [php]
+    severity: ERROR
+    message: Request data chooses a file that PHP includes and executes.
+    metadata:
+      cwe: [CWE-98]
+      owasp: [A03:2021-Injection]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sanitizers:
+      - pattern: basename(...)
+    pattern-sinks:
+      - pattern: include $FILE;
+      - pattern: include_once $FILE;
+      - pattern: require $FILE;
+      - pattern: require_once $FILE;
+
+  - id: hck.php.path-traversal
+    languages: [php]
+    severity: WARNING
+    message: Request data reaches a file-system path; review for path traversal.
+    metadata:
+      cwe: [CWE-22]
+      owasp: [A01:2021-Broken Access Control]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sanitizers:
+      - pattern: basename(...)
+      - pattern: sanitize_file_name(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: file_get_contents($PATH, ...)
+              - pattern: file_put_contents($PATH, ...)
+              - pattern: fopen($PATH, ...)
+              - pattern: readfile($PATH, ...)
+              - pattern: unlink($PATH, ...)
+              - pattern: file($PATH, ...)
+          - focus-metavariable: $PATH
+
+  - id: hck.php.server-side-request-forgery
+    languages: [php]
+    severity: WARNING
+    message: Request data chooses the destination of an outbound request; review for SSRF.
+    metadata:
+      cwe: [CWE-918]
+      owasp: [A10:2021-Server-Side Request Forgery]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sanitizers:
+      - pattern: wp_http_validate_url(...)
+      - pattern: rawurlencode(...)
+      - pattern: urlencode(...)
+      - pattern: intval(...)
+      - pattern: absint(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: wp_remote_get($URL, ...)
+              - pattern: wp_remote_post($URL, ...)
+              - pattern: wp_remote_request($URL, ...)
+              - pattern: wp_remote_head($URL, ...)
+              - pattern: curl_init($URL)
+              - pattern: curl_setopt($HANDLE, CURLOPT_URL, $URL)
+          - focus-metavariable: $URL
+
+  - id: hck.php.open-redirect
+    languages: [php]
+    severity: WARNING
+    message: Request data reaches a redirect or a response header; review for open redirect.
+    metadata:
+      cwe: [CWE-601]
+      owasp: [A01:2021-Broken Access Control]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sanitizers:
+      - pattern: wp_validate_redirect(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: wp_redirect($LOCATION, ...)
+              - pattern: header($LOCATION, ...)
+          - focus-metavariable: $LOCATION
+
+  - id: hck.php.request-data-persisted
+    languages: [php]
+    severity: WARNING
+    message: Request data is written to site options or user data; verify the capability check and nonce.
+    metadata:
+      cwe: [CWE-862]
+      owasp: [A01:2021-Broken Access Control]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sinks:
+      - pattern: update_option(...)
+      - pattern: add_option(...)
+      - pattern: update_site_option(...)
+      - pattern: update_user_meta(...)
+      - pattern: wp_update_user(...)
+      - pattern: wp_insert_user(...)
+
+  - id: hck.php.variable-overwrite
+    languages: [php]
+    severity: WARNING
+    message: Request data is imported into the local scope and can overwrite existing variables.
+    metadata:
+      cwe: [CWE-621]
+    mode: taint
+    pattern-sources: *php_sources
+    pattern-sinks:
+      - pattern: extract(...)
+      - pattern: parse_str($STRING)

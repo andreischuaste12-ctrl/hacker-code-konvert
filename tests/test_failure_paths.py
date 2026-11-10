@@ -26,6 +26,7 @@ def test_scanner_process_failure_results(tmp_path: Path, monkeypatch, command, s
     monkeypatch.setattr("hacker_code_konvert.semgrep_adapter.semgrep_executable", lambda: "/bin/true")
     monkeypatch.setattr("hacker_code_konvert.semgrep_adapter.semgrep_version", lambda _: "test")
     monkeypatch.setattr("hacker_code_konvert.semgrep_adapter.run_limited", lambda *a, **k: command)
+    (tmp_path / "app.py").write_text("x = 1\n")
     result = run_semgrep(
         tmp_path,
         build_inventory(tmp_path),
@@ -57,11 +58,19 @@ def test_fifo_is_skipped(tmp_path: Path):
 
 
 def test_unreadable_directory_recorded(tmp_path: Path, monkeypatch):
-    def denied(*args, **kwargs):
-        raise PermissionError("synthetic denial")
+    (tmp_path / "locked").mkdir()
+    (tmp_path / "locked/app.py").write_text("eval(input())\n")
+    original_open = os.open
 
-    monkeypatch.setattr("hacker_code_konvert.inventory.os.scandir", denied)
-    assert "unreadable directory" in build_inventory(tmp_path).skipped[0].reason
+    def denied(path, *args, **kwargs):
+        if path == "locked":
+            raise PermissionError("synthetic denial")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("hacker_code_konvert.snapshot.os.open", denied)
+    inventory = build_inventory(tmp_path)
+    assert inventory.skipped[0].reason == "unreadable directory: PermissionError"
+    assert inventory.incomplete
 
 
 def test_root_warning_and_real_scope_record(tmp_path: Path, monkeypatch):
@@ -130,6 +139,7 @@ def test_sandbox_isolation_construction_failure(tmp_path: Path, monkeypatch):
         "hacker_code_konvert.semgrep_adapter.build_bubblewrap_command",
         lambda *a, **k: (_ for _ in ()).throw(OSError("denied")),
     )
+    (tmp_path / "app.py").write_text("x = 1\n")
     result = run_semgrep(
         tmp_path,
         build_inventory(tmp_path),

@@ -225,5 +225,7 @@ def test_osv_rejects_unpinned_requirements(tmp_path: Path, monkeypatch):
         output_bytes=10000,
         max_file_bytes=10000,
     )
-    assert result.status == "failed"
-    assert "fixed ==" in result.errors[0]
+    # Nothing could be analyzed, which is a coverage gap rather than a crash of the whole scan.
+    assert result.status == "partial_coverage"
+    assert "unpinned" in result.errors[0]
+    assert not result.findings

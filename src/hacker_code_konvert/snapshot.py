@@ -6,15 +6,25 @@ import os
 import stat
 from pathlib import Path
 
-from hacker_code_konvert.formats import dependency_file
-from hacker_code_konvert.inventory import (
-    LANGUAGE_SUFFIXES,
-    LFS_HEADER,
-    MANIFEST_NAMES,
-    SCANNABLE_SUFFIXES,
-    ScopeError,
+from hacker_code_konvert.formats import (
+    SOURCE_LANGUAGES,
+    SOURCE_SNIFF_BYTES,
+    dependency_file,
+    is_lfs_pointer,
+    neutral_suffix,
+    source_language,
 )
+from hacker_code_konvert.inventory import LANGUAGE_SUFFIXES, MANIFEST_NAMES, ScopeError
 from hacker_code_konvert.models import Inventory, SkippedEntry
+
+READ_CHUNK_BYTES = 65536
+NESTED_REPOSITORY = "nested repository or submodule not traversed"
+
+
+def _gap(inventory: Inventory, relative: str, reason: str) -> None:
+    """Record content the scanner will not see. Every such entry makes the run incomplete."""
+    inventory.skipped.append(SkippedEntry(relative, reason))
+    inventory.incomplete = True
 
 
 def capture(
@@ -44,6 +54,7 @@ def capture(
                 stack.pop()
                 continue
             if name == ".git":
+                # Only reachable at the root: a directory holding .git is never entered below.
                 continue
             relative = f"{prefix}/{name}" if prefix else name
             descriptor = None
@@ -53,21 +64,25 @@ def capture(
                     inventory.skipped.append(SkippedEntry(relative, "symbolic link not followed"))
                     continue
                 if stat.S_ISDIR(metadata.st_mode):
-                    descriptor = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
                     try:
-                        os.stat(".git", dir_fd=descriptor, follow_symlinks=False)
-                    except FileNotFoundError:
-                        directory_count += 1
-                        if depth >= max_depth or directory_count > max_files:
-                            inventory.skipped.append(SkippedEntry(relative, "directory depth/count limit"))
-                            inventory.incomplete = True
-                        else:
-                            stack.append(
-                                (descriptor, relative, iter(sorted(os.listdir(descriptor))), depth + 1)
-                            )
-                            descriptor = None
-                    else:
-                        inventory.skipped.append(SkippedEntry(relative, "nested repository not traversed"))
+                        descriptor = os.open(
+                            name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory
+                        )
+                        entries = sorted(os.listdir(descriptor))
+                    except OSError as error:
+                        _gap(inventory, relative, f"unreadable directory: {type(error).__name__}")
+                        continue
+                    if ".git" in entries:
+                        # The content is not analyzed, so the run cannot be complete: otherwise an
+                        # empty file named .git would hide a whole directory from every scanner.
+                        _gap(inventory, relative, NESTED_REPOSITORY)
+                        continue
+                    directory_count += 1
+                    if depth >= max_depth or directory_count > max_files:
+                        _gap(inventory, relative, "directory depth/count limit")
+                        continue
+                    stack.append((descriptor, relative, iter(entries), depth + 1))
+                    descriptor = None
                     continue
                 if not stat.S_ISREG(metadata.st_mode):
                     inventory.skipped.append(SkippedEntry(relative, "non-regular file not scanned"))
@@ -79,61 +94,77 @@ def capture(
                 inventory.files_seen += 1
                 inventory.bytes_seen += opened.st_size
                 if inventory.files_seen > max_files:
-                    raise ScopeError("repository exceeds maximum file count")
-                if name in MANIFEST_NAMES or dependency_file(name):
+                    raise ScopeError(f"repository exceeds maximum file count ({max_files})")
+                dependency = dependency_file(name)
+                if name in MANIFEST_NAMES or dependency:
                     inventory.manifests.append(relative)
-                language = LANGUAGE_SUFFIXES.get(Path(name).suffix.lower())
-                if language:
-                    inventory.languages[language] = inventory.languages.get(language, 0) + 1
+
+                # Classify by suffix first; otherwise look at the first bytes so a script without a
+                # recognized suffix is still selected. Dependency-only runs never need the content.
+                head = b""
+                language = source_language(name)
+                if language is None and scanner != "osv-scanner":
+                    head = os.read(descriptor, SOURCE_SNIFF_BYTES)
+                    language = source_language(name, head)
+                label = (
+                    SOURCE_LANGUAGES[language][0]
+                    if language
+                    else LANGUAGE_SUFFIXES.get(Path(name).suffix.lower())
+                )
+                if label:
+                    inventory.languages[label] = inventory.languages.get(label, 0) + 1
+
+                if scanner == "inventory":
+                    inventory.regular_files.append(relative)
+                    if language:
+                        inventory.scan_files.append(relative)
+                        inventory.source_languages[relative] = language
+                    continue
                 selected = (
                     scanner in ("all", "gitleaks")
-                    or scanner == "semgrep"
-                    and Path(name).suffix.lower() in SCANNABLE_SUFFIXES
-                    or scanner == "osv-scanner"
-                    and dependency_file(name)
+                    or (scanner == "semgrep" and language is not None)
+                    or (scanner == "osv-scanner" and dependency)
                 )
                 if not selected:
-                    if scanner == "inventory":
-                        inventory.regular_files.append(relative)
-                        if Path(name).suffix.lower() in SCANNABLE_SUFFIXES:
-                            inventory.scan_files.append(relative)
                     continue
                 if opened.st_size > max_file_bytes:
-                    inventory.skipped.append(SkippedEntry(relative, "file exceeds size limit"))
-                    inventory.incomplete = True
+                    _gap(inventory, relative, f"file exceeds {max_file_bytes} byte limit")
                     continue
                 if total_bytes + opened.st_size > max_total_bytes:
-                    inventory.skipped.append(SkippedEntry(relative, "total snapshot byte limit"))
-                    inventory.incomplete = True
+                    _gap(inventory, relative, "total snapshot byte limit")
                     continue
                 # Bound reads even when a concurrent writer grows the file after fstat.
-                chunks = []
-                size = 0
-                while chunk := os.read(descriptor, min(65536, max_file_bytes + 1 - size)):
+                chunks = [head] if head else []
+                size = len(head)
+                while size <= max_file_bytes and total_bytes + size <= max_total_bytes:
+                    chunk = os.read(descriptor, min(READ_CHUNK_BYTES, max_file_bytes + 1 - size))
+                    if not chunk:
+                        break
                     chunks.append(chunk)
                     size += len(chunk)
-                    if size > max_file_bytes or total_bytes + size > max_total_bytes:
-                        break
-                data = b"".join(chunks)
                 if size > max_file_bytes or total_bytes + size > max_total_bytes:
-                    inventory.skipped.append(SkippedEntry(relative, "file grew beyond size limit"))
-                    inventory.incomplete = True
+                    _gap(inventory, relative, "file grew beyond size limit")
                     continue
-                if size <= 1024 and data.startswith(LFS_HEADER):
+                data = b"".join(chunks)
+                if is_lfs_pointer(data):
+                    # The pointer grammar cannot carry code or credentials, but the object it names
+                    # is absent. That is a coverage gap when the scanner needed that content.
                     inventory.skipped.append(SkippedEntry(relative, "Git LFS pointer; content unavailable"))
+                    if language or dependency:
+                        inventory.incomplete = True
                     continue
-                neutral = f"f{len(inventory.snapshot_paths):06d}{Path(name).suffix.lower()}"
+                neutral = f"f{len(inventory.snapshot_paths):06d}{neutral_suffix(name, language)}"
                 target = destination / neutral
                 target.write_bytes(data)
                 total_bytes += size
                 target.chmod(0o400)
                 inventory.snapshot_paths[relative] = neutral
                 inventory.regular_files.append(relative)
-                if Path(name).suffix.lower() in SCANNABLE_SUFFIXES:
+                if language:
                     inventory.scan_files.append(relative)
+                    inventory.source_languages[relative] = language
             except OSError as error:
-                inventory.incomplete = True
-                inventory.skipped.append(SkippedEntry(relative, f"unreadable entry: {type(error).__name__}"))
+                _gap(inventory, relative, f"unreadable entry: {type(error).__name__}")
             finally:
                 if descriptor is not None:
                     os.close(descriptor)
@@ -145,4 +176,8 @@ def capture(
     inventory.manifests.sort()
     inventory.regular_files.sort()
     inventory.skipped.sort(key=lambda entry: entry.path)
+    if ".gitattributes" in inventory.regular_files or (root / ".gitattributes").is_file():
+        inventory.limitations.append(
+            "Git attributes are reported but filters are not executed by the analyzer."
+        )
     return inventory

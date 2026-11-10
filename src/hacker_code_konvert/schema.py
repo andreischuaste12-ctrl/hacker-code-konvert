@@ -7,6 +7,9 @@ from typing import Any
 from hacker_code_konvert.textsafety import has_unsafe_characters
 
 STATUSES = {"candidate", "validated", "false_positive", "accepted_risk"}
+REVIEWED_DISMISSALS = {"false_positive", "accepted_risk"}
+# Every status other than the scanner default records a human decision and must be signed.
+REVIEWED_STATUSES = STATUSES - {"candidate"}
 SEVERITIES = {"informational", "low", "medium", "high", "critical"}
 CONFIDENCE = {"low", "medium", "high"}
 PROFILES = {"repository", "differential", "dependency", "ecommerce", "active"}
@@ -133,10 +136,13 @@ def validate_finding(finding: dict[str, Any]) -> None:
         _require(bool(review.get("reviewer")), "validated findings require a reviewer")
         _require(bool(review.get("reviewed_at")), "validated findings require a review date")
 
-    if finding["status"] == "accepted_risk":
-        _require(human_reviewed, "accepted risk requires human review")
-        _require(bool(review.get("reviewer")), "accepted risk requires an authorized reviewer")
-        _require(bool(review.get("reviewed_at")), "accepted risk requires a review date")
+    # Dismissing a finding is a review decision with the same weight as confirming it: a result
+    # marked false positive or accepted risk leaves the queue, so it needs an accountable reviewer.
+    if finding["status"] in REVIEWED_DISMISSALS:
+        label = finding["status"].replace("_", " ")
+        _require(human_reviewed, f"{label} requires human review")
+        _require(bool(review.get("reviewer")), f"{label} requires an authorized reviewer")
+        _require(bool(review.get("reviewed_at")), f"{label} requires a review date")
 
 
 def validate_findings(findings: list[dict[str, Any]]) -> None:

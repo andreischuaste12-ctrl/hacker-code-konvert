@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import platform
+import re
 import resource
 import shutil
 import signal
@@ -12,9 +14,21 @@ from pathlib import Path
 from typing import Any
 
 # Directories mounted read-only so the scanner runtime can load libraries and configuration.
-SYSTEM_MOUNTS = ("/usr", "/bin", "/lib", "/lib64", "/opt")
+SYSTEM_MOUNTS = ("/usr", "/bin", "/lib", "/lib64")
 # Locations from which a scanner executable needs no additional mount.
-SYSTEM_EXECUTABLE_BASES = ("/usr", "/bin", "/opt")
+SYSTEM_EXECUTABLE_BASES = ("/usr", "/bin")
+# Host configuration files the dynamic loader and runtimes read. Account databases are not exposed.
+ETC_FILES = ("ld.so.cache", "localtime", "ssl/certs/ca-certificates.crt")
+# Every writable location inside the sandbox is a size-capped tmpfs. The sandbox root and /dev are
+# remounted read-only, so these caps bound all memory the scanner can consume through files.
+DEFAULT_SCRATCH_BYTES = 256 * 1024**2
+HOME_BYTES = 16 * 1024**2
+SHARED_MEMORY_BYTES = 64 * 1024**2
+DEFAULT_MAX_PROCESSES = 256
+PRLIMIT_CANDIDATES = ("/usr/bin/prlimit", "/bin/prlimit")
+# RLIMIT_NPROC is accounted per user namespace from Linux 5.14 on; before that it counts every
+# process of the host user and cannot be used as a per-sandbox limit.
+NAMESPACED_NPROC_KERNEL = (5, 14)
 
 
 @dataclass
@@ -119,9 +133,10 @@ def _require_narrow_mount(path: Path) -> Path:
 def runtime_mounts(executable: Path) -> list[Path]:
     """Return the extra read-only mounts the scanner runtime needs.
 
-    Supported layouts are system locations (/usr, /bin, /opt) and Python virtual environments.
-    Any other layout would require exposing an unrelated directory (for example a home
-    directory), so it fails closed instead.
+    Supported layouts are system locations (/usr, /bin), Python virtual environments, a Python
+    installation prefix, and a product directory under /opt (only that directory is mounted, never
+    the whole of /opt). Any other layout would require exposing an unrelated directory (for example
+    a home directory), so it fails closed instead.
     """
     if _is_under(executable, SYSTEM_EXECUTABLE_BASES):
         return []
@@ -133,20 +148,45 @@ def runtime_mounts(executable: Path) -> list[Path]:
         if interpreter_home is not None and not _is_under(interpreter_home, SYSTEM_EXECUTABLE_BASES):
             mounts.append(_require_narrow_mount(interpreter_home.parent))
         return mounts
-    if executable.name.startswith("python") and executable.parent.name == "bin":
-        if any((environment_root / "lib").glob("python*/os.py")):
-            return [_require_narrow_mount(environment_root)]
+    if executable.parent.name == "bin" and any((environment_root / "lib").glob("python*/os.py")):
+        return [_require_narrow_mount(environment_root)]
+    if executable.is_relative_to("/opt") and len(executable.parts) >= 4:
+        return [Path(*executable.parts[:3])]
     raise SandboxUnavailable(
-        "the scanner must be installed under /usr or /opt, or inside a Python virtual environment; "
-        f"refusing to expose the directory around {executable}"
+        "the scanner must be installed under /usr, in its own directory under /opt, or inside a "
+        f"Python virtual environment; refusing to expose the directory around {executable}"
     )
+
+
+def _kernel_version() -> tuple[int, int]:
+    match = re.match(r"(\d+)\.(\d+)", platform.release())
+    return (int(match.group(1)), int(match.group(2))) if match else (0, 0)
+
+
+def process_limit_prefix(max_processes: int = DEFAULT_MAX_PROCESSES) -> list[str]:
+    """Command prefix that caps the number of processes and threads inside the sandbox.
+
+    The limit is applied by ``prlimit`` after Bubblewrap has created the user namespace, where
+    RLIMIT_NPROC counts only the sandbox. It is unavailable to the superuser (the kernel exempts
+    it), on kernels older than 5.14, and where ``prlimit`` is not installed; the caller records
+    that in the run instead of pretending a limit exists.
+    """
+    if os.geteuid() == 0 or _kernel_version() < NAMESPACED_NPROC_KERNEL:
+        return []
+    for candidate in PRLIMIT_CANDIDATES:
+        if os.access(candidate, os.X_OK):
+            return [candidate, f"--nproc={max_processes}:{max_processes}", "--"]
+    return []
 
 
 def build_bubblewrap_command(
     command: list[str],
     *,
     staged_root: Path,
-    rules_file: Path,
+    rules_file: Path | None,
+    scratch_bytes: int = DEFAULT_SCRATCH_BYTES,
+    max_processes: int = DEFAULT_MAX_PROCESSES,
+    read_only_binds: tuple[tuple[Path, str], ...] = (),
 ) -> list[str]:
     bwrap = bubblewrap_path()
     wrapped = [
@@ -162,35 +202,33 @@ def build_bubblewrap_command(
         "/proc",
         "--dev",
         "/dev",
+        "--size",
+        str(SHARED_MEMORY_BYTES),
+        "--tmpfs",
+        "/dev/shm",
+        "--size",
+        str(scratch_bytes),
         "--tmpfs",
         "/tmp",
+        "--size",
+        str(HOME_BYTES),
         "--tmpfs",
         "/home",
-        "--dir",
-        "/rules",
         "--ro-bind",
         str(staged_root),
         "/target",
-        "--ro-bind",
-        str(rules_file),
-        "/rules/python-security.yml",
         "--chdir",
         "/target",
     ]
+    if rules_file is not None:
+        wrapped.extend(["--dir", "/rules", "--ro-bind", str(rules_file), f"/rules/{rules_file.name}"])
 
     for system_path in SYSTEM_MOUNTS:
         path = Path(system_path)
         if path.exists():
             wrapped.extend(["--ro-bind", system_path, system_path])
 
-    for name in (
-        "ld.so.cache",
-        "passwd",
-        "group",
-        "nsswitch.conf",
-        "localtime",
-        "ssl/certs/ca-certificates.crt",
-    ):
+    for name in ETC_FILES:
         source = Path("/etc") / name
         if source.exists():
             wrapped.extend(["--ro-bind", str(source.resolve()), f"/etc/{name}"])
@@ -198,13 +236,37 @@ def build_bubblewrap_command(
     executable = Path(command[0]).resolve(strict=True)
     for mount in runtime_mounts(executable):
         wrapped.extend(["--ro-bind", str(mount), str(mount)])
+    for source, destination in read_only_binds:
+        wrapped.extend(["--ro-bind", str(source), destination])
 
-    wrapped.extend(["--", *command])
+    # Bubblewrap builds the sandbox on tmpfs mounts that are otherwise writable and limited only by
+    # host memory. Make the root and /dev read-only after everything above is in place.
+    wrapped.extend(["--remount-ro", "/dev", "--remount-ro", "/"])
+    wrapped.extend(["--", *process_limit_prefix(max_processes), *command])
     return wrapped
 
 
-def sandbox_metadata() -> dict[str, Any]:
+PROCESS_LIMIT_ABSENT = (
+    "not enforced (running as root, kernel older than 5.14, or prlimit unavailable); "
+    "use a delegated cgroup"
+)
+
+
+def process_limit_description(max_processes: int = DEFAULT_MAX_PROCESSES) -> str:
+    controls = []
+    if os.environ.get("HCK_CGROUP_PARENT"):
+        controls.append("delegated cgroup pids.max")
+    if process_limit_prefix(max_processes):
+        controls.append(f"RLIMIT_NPROC {max_processes} inside the sandbox user namespace")
+    return "; ".join(controls) or PROCESS_LIMIT_ABSENT
+
+
+def sandbox_metadata(
+    *, scratch_bytes: int = DEFAULT_SCRATCH_BYTES, max_processes: int = DEFAULT_MAX_PROCESSES
+) -> dict[str, Any]:
     """Describe the isolation controls that build_bubblewrap_command applies."""
+    from hacker_code_konvert.seccomp import unresolved_syscalls
+
     return {
         "tool": "bubblewrap",
         "version": bubblewrap_version(),
@@ -212,10 +274,16 @@ def sandbox_metadata() -> dict[str, Any]:
         "network": "disabled",
         "capabilities": "dropped",
         "target": "read-only",
-        "seccomp": "libseccomp denylist; network sockets and dangerous kernel interfaces denied",
-        "process_limit": "delegated cgroup pids.max"
-        if os.environ.get("HCK_CGROUP_PARENT")
-        else "not enforced; dedicated cgroup recommended",
+        "filesystem": (
+            "read-only root and /dev; writable tmpfs only at /tmp "
+            f"({scratch_bytes} bytes), /home ({HOME_BYTES} bytes) and /dev/shm ({SHARED_MEMORY_BYTES} bytes)"
+        ),
+        "seccomp": (
+            "libseccomp filter; every socket family except AF_UNIX and dangerous kernel "
+            "interfaces denied"
+        ),
+        "seccomp_unresolved_syscalls": unresolved_syscalls(),
+        "process_limit": process_limit_description(max_processes),
     }
 
 

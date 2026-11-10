@@ -48,12 +48,19 @@ def _coverage_lines(run: dict[str, Any]) -> list[str]:
     inventory = run["inventory"]
     lines = [
         f"- Files inventoried: {inventory['files_seen']}",
-        f"- Python files selected: {len(inventory['scan_files'])}",
+        f"- Supported source files found: {len(inventory['scan_files'])}",
     ]
     if scanner["name"] != "inventory":
+        submitted = scanner.get("files_submitted")
         analyzed = scanner.get("files_scanned")
-        shown = analyzed if analyzed is not None else "unknown"
-        lines.append(f"- Python files analyzed by the scanner: {shown}")
+        lines.append(f"- Files submitted to the scanner: {'unknown' if submitted is None else submitted}")
+        lines.append(
+            "- Files the scanner reported as analyzed: "
+            + ("not reported by this scanner" if analyzed is None else str(analyzed))
+        )
+        packages = (scanner.get("coverage") or {}).get("packages_evaluated")
+        if packages is not None:
+            lines.append(f"- Dependency packages evaluated: {packages}")
     lines.extend(
         [
             f"- Manifests found: {len(inventory['manifests'])}",
@@ -86,7 +93,7 @@ def render_markdown(run: dict[str, Any], findings: list[dict[str, Any]]) -> str:
     rule_count = (
         "vendor defaults plus custom rules"
         if rule_data.get("extends_vendor_defaults")
-        else rule_data.get("count", 0)
+        else rule_data.get("kind") or rule_data.get("count", 0)
     )
     lines = [
         "# Hacker Code Konvert Report",

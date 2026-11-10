@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any, cast
 
 from hacker_code_konvert import __version__
+from hacker_code_konvert.formats import SOURCE_LANGUAGES, source_language
 from hacker_code_konvert.inventory import (
-    SCANNABLE_SUFFIXES,
     ScopeError,
     build_inventory,
     resolve_repository,
@@ -27,7 +27,8 @@ from hacker_code_konvert.inventory import (
 from hacker_code_konvert.models import ScannerResult
 from hacker_code_konvert.provenance import rules_metadata
 from hacker_code_konvert.reporting import write_artifacts
-from hacker_code_konvert.schema import ValidationError, validate_findings
+from hacker_code_konvert.sandbox import PROCESS_LIMIT_ABSENT
+from hacker_code_konvert.schema import REVIEWED_STATUSES, ValidationError, validate_findings
 from hacker_code_konvert.scope import load_scope
 from hacker_code_konvert.semgrep_adapter import run_semgrep
 from hacker_code_konvert.textsafety import strip_unsafe_characters
@@ -37,6 +38,11 @@ OBJECT_ID = re.compile(r"[0-9a-f]{40}")
 GIT_REFERENCE = re.compile(r"refs/[A-Za-z0-9._/-]{1,200}")
 MAX_GIT_FILE_BYTES = 4096
 MAX_PACKED_REFS_BYTES = 1_048_576
+MAX_FINDINGS_FILE_BYTES = 64 * 1024**2
+DEFAULT_MAX_FILE_BYTES = 1_000_000
+# Lockfiles of real projects routinely exceed the source-file limit.
+DEFAULT_MAX_LOCKFILE_BYTES = 32 * 1024**2
+SUPPORTED_LANGUAGE_NAMES = frozenset(label for label, _ in SOURCE_LANGUAGES.values())
 
 
 def _positive_integer(value: str) -> int:
@@ -127,6 +133,10 @@ def _scan(args: argparse.Namespace) -> int:
         return 2
     if args.memory_mb is None:
         args.memory_mb = 16384 if args.scanner in ("gitleaks", "osv-scanner") else 4096
+    if args.max_file_bytes is None:
+        args.max_file_bytes = (
+            DEFAULT_MAX_LOCKFILE_BYTES if args.scanner == "osv-scanner" else DEFAULT_MAX_FILE_BYTES
+        )
     started_at = datetime.now(UTC)
     started_monotonic = time.monotonic()
     try:
@@ -196,13 +206,37 @@ def _scan(args: argparse.Namespace) -> int:
             "No vulnerability scanner was selected: this run is an inventory only, and the absence of "
             "findings has no security meaning."
         )
-    skipped_python = [
-        entry for entry in inventory.skipped if Path(entry.path).suffix.lower() in SCANNABLE_SUFFIXES
-    ]
-    if skipped_python:
+    skipped_sources = [entry for entry in inventory.skipped if source_language(entry.path)]
+    if skipped_sources:
         limitations.append(
-            f"{len(skipped_python)} supported source file(s) were skipped and not analyzed; "
+            f"{len(skipped_sources)} supported source file(s) were skipped and not analyzed; "
             "see inventory.skipped in run.json for each reason."
+        )
+    if scanner.name == "semgrep":
+        limitations.append(
+            "Source files are selected by suffix, by an interpreter line, or by a PHP opening tag at "
+            "the start of the file. Code kept in any other file is not analyzed."
+        )
+        unsupported = sorted(
+            (label, count)
+            for label, count in inventory.languages.items()
+            if label not in SUPPORTED_LANGUAGE_NAMES
+        )
+        if unsupported:
+            listed = ", ".join(f"{label} ({count})" for label, count in unsupported)
+            limitations.append(
+                f"Source files in languages without bundled rules were not analyzed: {listed}."
+            )
+    if scanner.sandbox.get("process_limit") == PROCESS_LIMIT_ABSENT:
+        limitations.append(
+            "No process-count limit was enforced inside the sandbox; a scanner could exhaust the "
+            "process table for the duration of the timeout."
+        )
+    if scanner.sandbox.get("seccomp_unresolved_syscalls"):
+        limitations.append(
+            "The installed libseccomp cannot express every denied system call: "
+            + ", ".join(scanner.sandbox["seccomp_unresolved_syscalls"])
+            + "."
         )
     if scanner.name == "semgrep" and scanner.version is None:
         limitations.append("The Semgrep version could not be determined; the run is harder to reproduce.")
@@ -265,27 +299,47 @@ def _scan(args: argparse.Namespace) -> int:
     return 0 if complete else 3
 
 
+def _load_reviewed_findings(args: argparse.Namespace) -> list[dict[str, Any]]:
+    """Read the findings document once, validate it, and verify the review signature over those bytes.
+
+    Using one read for the schema check, the signature check and every later step removes the
+    window in which the file could be replaced after it was verified.
+    """
+    with Path(args.file).open("rb") as stream:
+        data = stream.read(MAX_FINDINGS_FILE_BYTES + 1)
+    if len(data) > MAX_FINDINGS_FILE_BYTES:
+        raise ValidationError("findings document exceeds the size limit")
+    payload = json.loads(data.decode("utf-8"))
+    findings = payload.get("findings") if isinstance(payload, dict) else payload
+    if not isinstance(findings, list):
+        raise ValidationError("input must be a finding list or an object containing 'findings'")
+    validate_findings(findings)
+    if any(finding["status"] in REVIEWED_STATUSES for finding in findings):
+        from hacker_code_konvert.review import verify_review
+
+        if not args.signature or not args.allowed_signers or not args.reviewer:
+            raise ValidationError(
+                "Findings marked validated, false_positive or accepted_risk record a human decision "
+                "and require a signature, allowed signers, and reviewer"
+            )
+        verify_review(data, Path(args.signature), Path(args.allowed_signers), args.reviewer)
+    return cast(list[dict[str, Any]], findings)
+
+
+_INVALID_INPUT = (
+    OSError,
+    UnicodeError,
+    json.JSONDecodeError,
+    RecursionError,
+    ValueError,
+    subprocess.SubprocessError,
+)
+
+
 def _validate(args: argparse.Namespace) -> int:
     try:
-        payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
-        findings = payload.get("findings") if isinstance(payload, dict) else payload
-        if not isinstance(findings, list):
-            raise ValidationError("input must be a finding list or an object containing 'findings'")
-        validate_findings(findings)
-        if any(finding["status"] in ("validated", "accepted_risk") for finding in findings):
-            from hacker_code_konvert.review import verify_review
-
-            if not args.signature or not args.allowed_signers or not args.reviewer:
-                raise ValidationError("Reviewed findings require a signature, allowed signers, and reviewer")
-            verify_review(Path(args.file), Path(args.signature), Path(args.allowed_signers), args.reviewer)
-    except (
-        OSError,
-        UnicodeError,
-        json.JSONDecodeError,
-        RecursionError,
-        ValueError,
-        subprocess.SubprocessError,
-    ) as error:
+        findings = _load_reviewed_findings(args)
+    except _INVALID_INPUT as error:
         print(f"invalid: {_printable(str(error))}", file=sys.stderr)
         return 2
     print(f"valid: {len(findings)} finding(s)")
@@ -293,13 +347,14 @@ def _validate(args: argparse.Namespace) -> int:
 
 
 def _draft(args: argparse.Namespace) -> int:
-    if _validate(args):
-        return 2
     from hacker_code_konvert.redaction import redact
     from hacker_code_konvert.reporting import _atomic_write, _markdown_text
 
-    payload = json.loads(Path(args.file).read_text())
-    findings = payload.get("findings", []) if isinstance(payload, dict) else payload
+    try:
+        findings = _load_reviewed_findings(args)
+    except _INVALID_INPUT as error:
+        print(f"invalid: {_printable(str(error))}", file=sys.stderr)
+        return 2
     validated = [finding for finding in findings if finding["status"] == "validated"]
     if not validated:
         print("error: no validated findings available", file=sys.stderr)
@@ -347,7 +402,12 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--timeout", type=_positive_integer, default=60)
     scan.add_argument("--memory-mb", type=_positive_integer, default=None)
     scan.add_argument("--max-output-bytes", type=_positive_integer, default=5_000_000)
-    scan.add_argument("--max-file-bytes", type=_positive_integer, default=1_000_000)
+    scan.add_argument(
+        "--max-file-bytes",
+        type=_positive_integer,
+        default=None,
+        help="per-file limit; defaults to 1 MB, or 32 MiB for dependency files with osv-scanner",
+    )
     scan.add_argument("--max-total-bytes", type=_positive_integer, default=256 * 1024**2)
     scan.add_argument("--max-depth", type=_positive_integer, default=64)
     scan.add_argument("--max-files", type=_positive_integer, default=10_000)

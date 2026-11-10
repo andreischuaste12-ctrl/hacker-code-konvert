@@ -65,7 +65,9 @@
         "name": {
           "enum": [
             "inventory",
-            "semgrep"
+            "semgrep",
+            "gitleaks",
+            "osv-scanner"
           ]
         },
         "status": {
@@ -92,6 +94,16 @@
             "null"
           ],
           "minimum": 0
+        },
+        "files_submitted": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "coverage": {
+          "type": "object"
         },
         "sandbox": {
           "type": "object"

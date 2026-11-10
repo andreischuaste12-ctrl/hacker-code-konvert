@@ -25,9 +25,36 @@ def test_bubblewrap_command_has_networkless_read_only_boundary(tmp_path: Path, m
     command = build_bubblewrap_command(["/usr/bin/true"], staged_root=staged, rules_file=rules)
 
     assert "--unshare-all" in command
-    assert command[command.index("--tmpfs") + 1] == "/tmp"
-    assert command[command.index("/home") - 1] == "--tmpfs"
     assert ["--ro-bind", str(staged), "/target"] == command[command.index(str(staged)) - 1 :][:3]
+    assert ["--ro-bind", str(rules), "/rules/rules.yml"] == command[command.index(str(rules)) - 1 :][:3]
+    # Every writable mount is a size-capped tmpfs, and the sandbox root and /dev end up read-only.
+    for writable in ("/tmp", "/home", "/dev/shm"):
+        index = command.index(writable)
+        assert command[index - 3 : index] == ["--size", command[index - 2], "--tmpfs"]
+        assert int(command[index - 2]) > 0
+    assert command.count("--tmpfs") == 3
+    separator = command.index("--")
+    assert command[separator - 4 : separator] == ["--remount-ro", "/dev", "--remount-ro", "/"]
+    # Host account databases and the whole of /opt are not exposed.
+    assert "/etc/passwd" not in command and "/etc/group" not in command
+    assert "/opt" not in command
+
+
+def test_rules_mount_is_optional(tmp_path: Path, monkeypatch) -> None:
+    staged = tmp_path / "target"
+    staged.mkdir()
+    monkeypatch.setattr("hacker_code_konvert.sandbox.bubblewrap_path", lambda: "/usr/bin/bwrap")
+    database = tmp_path / "database"
+    command = build_bubblewrap_command(
+        ["/usr/bin/true"],
+        staged_root=staged,
+        rules_file=None,
+        scratch_bytes=1234,
+        read_only_binds=((database, "/database"),),
+    )
+    assert "/rules" not in command
+    assert command[command.index("/tmp") - 2] == "1234"
+    assert ["--ro-bind", str(database), "/database"] == command[command.index(str(database)) - 1 :][:3]
 
 
 def test_timeout_is_recorded() -> None:
@@ -76,7 +103,21 @@ def test_command_drops_all_capabilities(tmp_path: Path, monkeypatch) -> None:
 
 def test_system_installation_needs_no_extra_mount() -> None:
     assert runtime_mounts(Path("/usr/bin/semgrep")) == []
-    assert runtime_mounts(Path("/opt/hostedtoolcache/Python/3.12.0/x64/bin/semgrep")) == []
+
+
+def test_opt_installation_mounts_only_its_own_product_directory(tmp_path: Path) -> None:
+    assert runtime_mounts(Path("/opt/scanner/bin/gitleaks")) == [Path("/opt/scanner")]
+    assert runtime_mounts(Path("/opt/vendor/tool")) == [Path("/opt/vendor")]
+    with pytest.raises(SandboxUnavailable):
+        runtime_mounts(Path("/opt/loose-binary"))
+
+
+def test_python_prefix_installation_mounts_only_that_prefix(tmp_path: Path) -> None:
+    prefix = tmp_path / "toolcache" / "Python" / "3.12.0" / "x64"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "lib" / "python3.12").mkdir(parents=True)
+    (prefix / "lib" / "python3.12" / "os.py").write_text("", encoding="utf-8")
+    assert runtime_mounts(prefix / "bin" / "semgrep") == [prefix]
 
 
 def test_virtualenv_installation_mounts_only_the_environment(tmp_path: Path) -> None:

@@ -38,7 +38,7 @@ def test_neutral_staging_preserves_hostile_paths(tmp_path: Path) -> None:
 
 def test_rules_manifest_covers_twelve_classes() -> None:
     rules = rules_metadata()
-    assert rules["count"] == 15
+    assert rules["count"] == 33
     assert len(rules["sha256"]) == 64
 
 
@@ -114,7 +114,7 @@ def test_hostile_filename_roundtrip_in_scanner(tmp_path: Path, require_semgrep, 
 def test_rule_hash_changes_with_rule_bytes(tmp_path: Path, monkeypatch) -> None:
     directory = tmp_path / "data"
     directory.mkdir()
-    rules = directory / "python-security.yml"
+    rules = directory / "semgrep-rules.yml"
     rules.write_text("rules:\n  - id: hck.test.one\n")
     monkeypatch.setattr("hacker_code_konvert.provenance.files", lambda _: tmp_path)
     before = rules_metadata()

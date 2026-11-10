@@ -105,12 +105,19 @@ jobs:
           hck scan tests/fixtures/php --output /tmp/hck-php-report --authorized
           python scripts/evaluate_fixture_quality.py --findings /tmp/hck-php-report/findings.json --expected tests/fixtures/php/expected.json --output /tmp/hck-php-report/quality.json
 
-      - name: Measure fixture quality
+      - name: Measure Python fixture quality
         run: >-
           python scripts/evaluate_fixture_quality.py
           --findings /tmp/hck-fixture-report/findings.json
           --expected tests/fixtures/python/expected.json
           --output /tmp/hck-fixture-report/quality.json
+
+      # Line-level corpus written before the rules were extended; its documented gap must stay a gap
+      # until the corpus and docs/QUALITY.md are updated together.
+      - name: Run mixed review corpus and measure its quality
+        run: |
+          hck scan tests/fixtures/mixed --output /tmp/hck-mixed-report --authorized
+          python scripts/evaluate_fixture_quality.py --findings /tmp/hck-mixed-report/findings.json --expected tests/fixtures/mixed/expected.json --output /tmp/hck-mixed-report/quality.json
 
       - name: Upload redacted quality artifacts
         if: always()
@@ -122,5 +129,7 @@ jobs:
             /tmp/hck-fixture-report/findings.json
             /tmp/hck-fixture-report/report.md
             /tmp/hck-fixture-report/quality.json
+            /tmp/hck-php-report/quality.json
+            /tmp/hck-mixed-report/quality.json
           if-no-files-found: warn
           retention-days: 14

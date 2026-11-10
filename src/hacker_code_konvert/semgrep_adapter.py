@@ -10,8 +10,8 @@ from importlib.resources import files
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from hacker_code_konvert.inventory import ScopeError
-from hacker_code_konvert.inventory import stage_neutral_files as stage_scan_files
+from hacker_code_konvert.findings import candidate, deduplicated
+from hacker_code_konvert.inventory import ScopeError, stage_neutral_files
 from hacker_code_konvert.models import Inventory, ScannerResult
 from hacker_code_konvert.provenance import translate_paths
 from hacker_code_konvert.redaction import redact_text
@@ -30,7 +30,8 @@ SEVERITY_MAP = {
     "INFO": "low",
 }
 
-SANDBOX_RULES_PATH = "/rules/python-security.yml"
+RULES_FILE_NAME = "semgrep-rules.yml"
+SANDBOX_RULES_PATH = f"/rules/{RULES_FILE_NAME}"
 SANDBOX_TARGET_PATH = "/target"
 STDERR_WINDOW_BYTES = 8192
 STDERR_EXCERPT_CHARS = 1000
@@ -87,22 +88,8 @@ def scanner_arguments(max_file_bytes: int) -> list[str]:
 
 def recorded_command(arguments: list[str]) -> list[str]:
     """The executed command with environment-specific paths replaced by stable placeholders."""
-    placeholders = {SANDBOX_RULES_PATH: "<bundled-python-rules>", SANDBOX_TARGET_PATH: "<staged-target>"}
+    placeholders = {SANDBOX_RULES_PATH: "<bundled-rules>", SANDBOX_TARGET_PATH: "<staged-target>"}
     return ["semgrep", *(placeholders.get(argument, argument) for argument in arguments)]
-
-
-def _gate_state() -> dict[str, str]:
-    return {
-        "authorization_scope": "pass",
-        "coherent_claim": "pass",
-        "code_applicability": "pass",
-        "attacker_control_reachability": "unresolved",
-        "vulnerability_mechanism": "unresolved",
-        "realistic_impact": "unresolved",
-        "environmental_controls": "unresolved",
-        "safe_evidence": "pass",
-        "human_review": "pending",
-    }
 
 
 def normalize_semgrep(payload: dict[str, Any], version: str | None) -> list[dict[str, Any]]:
@@ -122,69 +109,26 @@ def normalize_semgrep(payload: dict[str, Any], version: str | None) -> list[dict
         rule_id = strip_unsafe_characters(str(result.get("check_id", "unknown-rule")))
         if "hck." in rule_id:
             rule_id = rule_id[rule_id.index("hck.") :]
-        path = _safe_relative_path(result.get("path", "unknown"))
         start_line = int(start.get("line", 1))
-        end_line = int(end.get("line", start_line))
         raw_message = str(extra.get("message", "Semgrep candidate requires review."))
-        message = redact_text(strip_unsafe_characters(raw_message))
-        fingerprint_source = f"{rule_id}\0{path}\0{start_line}\0{end_line}"
-        fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()
         metadata = extra.get("metadata", {}) if isinstance(extra.get("metadata", {}), dict) else {}
-        taxonomy: dict[str, Any] = {}
-        if metadata.get("cwe"):
-            taxonomy["cwe"] = metadata["cwe"]
-        if metadata.get("owasp"):
-            taxonomy["owasp"] = metadata["owasp"]
+        taxonomy = {key: metadata[key] for key in ("cwe", "owasp") if metadata.get(key)}
+        findings.append(
+            candidate(
+                rule_id=rule_id,
+                path=_safe_relative_path(result.get("path", "unknown")),
+                start_line=start_line,
+                end_line=int(end.get("line", start_line)),
+                title=redact_text(strip_unsafe_characters(raw_message)),
+                severity=SEVERITY_MAP.get(str(extra.get("severity", "INFO")).upper(), "informational"),
+                category="sast",
+                scanner="semgrep",
+                version=version,
+                taxonomy=taxonomy,
+            )
+        )
 
-        finding: dict[str, Any] = {
-            "id": f"HCK-{fingerprint[:12].upper()}",
-            "fingerprint": f"sha256:{fingerprint}",
-            "title": message,
-            "status": "candidate",
-            "analysis_profile": "repository",
-            "severity": SEVERITY_MAP.get(str(extra.get("severity", "INFO")).upper(), "informational"),
-            "confidence": "medium",
-            "confidence_rationale": (
-                "The bundled rule matched, but exploitability and reachability are unresolved."
-            ),
-            "category": "sast",
-            "location": {"path": path, "start_line": start_line, "end_line": end_line},
-            "threat_model": {
-                "attacker": "unconfirmed",
-                "required_access": "unconfirmed",
-                "conditions": ["Requires contextual source-to-sink review"],
-            },
-            "evidence": {
-                "summary": message,
-                "source_to_sink": [],
-                "redacted": True,
-            },
-            "validation": _gate_state(),
-            "impact": "Potential security impact requires human validation.",
-            "reproduction": {
-                "performed": False,
-                "reason": "The static MVP does not execute target code; human review is required.",
-                "steps": [],
-            },
-            "remediation": {
-                "summary": "Review the affected data flow and apply the framework-specific safe alternative.",
-                "verification": "Repeat the local rule and relevant project tests after an approved fix.",
-            },
-            "sources": [{"type": "scanner", "name": "semgrep", "version": version, "rule_id": rule_id}],
-            "review": {
-                "human_reviewed": False,
-                "reviewer": None,
-                "reviewed_at": None,
-                "rationale": "Scanner output is a candidate and has not passed contextual review.",
-            },
-            "disclosure": {"status": "not_applicable", "approved_by": None, "updated_at": None},
-        }
-        if taxonomy:
-            finding["taxonomy"] = taxonomy
-        findings.append(finding)
-
-    deduplicated = {finding["fingerprint"]: finding for finding in findings}
-    normalized = [deduplicated[key] for key in sorted(deduplicated)]
+    normalized = deduplicated(findings)
     validate_findings(normalized)
     return normalized
 
@@ -291,13 +235,23 @@ def run_semgrep(
         )
 
     version = semgrep_version(executable)
-    rules_file = Path(str(files("hacker_code_konvert").joinpath("data/python-security.yml"))).resolve()
+    if not inventory.scan_files:
+        # Nothing was analyzed, so the run must not read as a clean, complete scan.
+        return ScannerResult(
+            name="semgrep",
+            version=version,
+            status="partial_coverage",
+            errors=["No supported Python or PHP source file was selected; nothing was analyzed."],
+            files_scanned=0,
+            files_submitted=0,
+        )
+    rules_file = Path(str(files("hacker_code_konvert").joinpath(f"data/{RULES_FILE_NAME}"))).resolve()
     arguments = scanner_arguments(max_file_bytes)
     stable_command = recorded_command(arguments)
     with tempfile.TemporaryDirectory(prefix="hck-stage-") as temporary:
         staged_root = Path(temporary) / "target"
         try:
-            mapping = stage_scan_files(root, inventory, staged_root, max_file_bytes=max_file_bytes)
+            mapping = stage_neutral_files(root, inventory, staged_root, max_file_bytes=max_file_bytes)
             input_hashes = {
                 name: hashlib.sha256((staged_root / name).read_bytes()).hexdigest() for name in mapping
             }
@@ -394,5 +348,6 @@ def run_semgrep(
         command=stable_command,
         sandbox=isolation,
         files_scanned=len(scanned) if isinstance(scanned, list) else None,
+        files_submitted=len(mapping),
         input_hashes=input_hashes,
     )

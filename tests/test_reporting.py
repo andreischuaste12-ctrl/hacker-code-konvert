@@ -68,4 +68,4 @@ def test_coverage_gaps_are_listed_in_the_report() -> None:
     run["scanner"]["errors"] = ["Semgrep did not analyze 2 of 3 selected file(s): tests/x.py."]
     report = render_markdown(run, [])
     assert "Coverage Gaps" in report and "tests/x.py" in report
-    assert "Python files analyzed by the scanner: 3" in report
+    assert "Files the scanner reported as analyzed: 3" in report
