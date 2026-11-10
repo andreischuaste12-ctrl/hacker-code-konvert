@@ -30,7 +30,7 @@ from hacker_code_konvert.reporting import write_artifacts
 from hacker_code_konvert.sandbox import PROCESS_LIMIT_ABSENT
 from hacker_code_konvert.schema import REVIEWED_STATUSES, ValidationError, validate_findings
 from hacker_code_konvert.scope import load_scope
-from hacker_code_konvert.semgrep_adapter import run_semgrep
+from hacker_code_konvert.semgrep_adapter import DEFAULT_MEMORY_MB, run_semgrep
 from hacker_code_konvert.textsafety import strip_unsafe_characters
 
 COMPLETE_STATUSES = frozenset({"completed"})
@@ -132,7 +132,7 @@ def _scan(args: argparse.Namespace) -> int:
         print("error: --authorized is required to confirm the repository is in scope", file=sys.stderr)
         return 2
     if args.memory_mb is None:
-        args.memory_mb = 16384 if args.scanner in ("gitleaks", "osv-scanner") else 4096
+        args.memory_mb = 16384 if args.scanner in ("gitleaks", "osv-scanner") else DEFAULT_MEMORY_MB
     if args.max_file_bytes is None:
         args.max_file_bytes = (
             DEFAULT_MAX_LOCKFILE_BYTES if args.scanner == "osv-scanner" else DEFAULT_MAX_FILE_BYTES

@@ -74,14 +74,14 @@ def test_sarif_conforms_to_oasis_schema() -> None:
 
 @pytest.mark.integration
 def test_php_profile_fixtures(require_semgrep, require_sandbox) -> None:
-    from hacker_code_konvert.semgrep_adapter import run_semgrep
+    from hacker_code_konvert.semgrep_adapter import DEFAULT_MEMORY_BYTES, run_semgrep
 
     root = Path(__file__).parent / "fixtures/php"
     result = run_semgrep(
         root,
         build_inventory(root),
         timeout_seconds=60,
-        memory_bytes=4 * 1024**3,
+        memory_bytes=DEFAULT_MEMORY_BYTES,
         output_bytes=1000000,
         max_file_bytes=100000,
     )
@@ -94,7 +94,7 @@ def test_php_profile_fixtures(require_semgrep, require_sandbox) -> None:
 
 @pytest.mark.integration
 def test_hostile_filename_roundtrip_in_scanner(tmp_path: Path, require_semgrep, require_sandbox) -> None:
-    from hacker_code_konvert.semgrep_adapter import run_semgrep
+    from hacker_code_konvert.semgrep_adapter import DEFAULT_MEMORY_BYTES, run_semgrep
 
     names = {"back\\slash.py", "evil\u202e.py", os.fsdecode(b"bad\xff.py")}
     for name in names:
@@ -103,7 +103,7 @@ def test_hostile_filename_roundtrip_in_scanner(tmp_path: Path, require_semgrep, 
         tmp_path,
         build_inventory(tmp_path),
         timeout_seconds=60,
-        memory_bytes=4 * 1024**3,
+        memory_bytes=DEFAULT_MEMORY_BYTES,
         output_bytes=1000000,
         max_file_bytes=100000,
     )

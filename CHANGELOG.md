@@ -29,6 +29,8 @@ All notable project changes are documented here. The format follows [Keep a Chan
 - Rule pack extended from 15 to 33 rules (19 Python, 14 PHP/WordPress) and renamed to
   `semgrep-rules.yml`. `hck.php.wpdb-injection` is now `hck.php.sql-injection`.
 - One capture implementation replaces the separate inventory used by tests.
+- The Semgrep address-space default is 8 GiB (was 4 GiB): with the larger rule pack 4 GiB was
+  marginal on GitHub-hosted runners, where exhaustion ends the engine with SIGSEGV.
 - `scripts/evaluate_fixture_quality.py` supports line-level expectations and documented known gaps;
   CI measures a third corpus written before the rules were extended.
 - Report coverage lines state what each scanner measured; `run.json` gains `scanner.files_submitted`

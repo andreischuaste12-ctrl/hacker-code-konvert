@@ -33,6 +33,12 @@ SEVERITY_MAP = {
 RULES_FILE_NAME = "semgrep-rules.yml"
 SANDBOX_RULES_PATH = f"/rules/{RULES_FILE_NAME}"
 SANDBOX_TARGET_PATH = "/target"
+# Address-space limit for the Semgrep process tree. This bounds virtual memory, of which the engine
+# reserves far more than it touches, and the amount depends on the host. Running out of it does not
+# fail cleanly: on GitHub-hosted runners the engine dies with SIGSEGV. 4 GiB proved marginal there
+# once the rule pack grew, so the default keeps a wide margin.
+DEFAULT_MEMORY_MB = 8192
+DEFAULT_MEMORY_BYTES = DEFAULT_MEMORY_MB * 1024**2
 STDERR_WINDOW_BYTES = 8192
 STDERR_EXCERPT_CHARS = 1000
 MAX_LISTED_PATHS = 5

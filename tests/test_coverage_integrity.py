@@ -23,7 +23,7 @@ from hacker_code_konvert.models import Inventory, ScannerResult
 from hacker_code_konvert.reporting import render_markdown
 from hacker_code_konvert.sandbox import CommandResult
 from hacker_code_konvert.schema import ValidationError, validate_findings
-from hacker_code_konvert.semgrep_adapter import normalize_semgrep, run_semgrep
+from hacker_code_konvert.semgrep_adapter import DEFAULT_MEMORY_BYTES, normalize_semgrep, run_semgrep
 
 OPTIONS = dict(timeout_seconds=30, memory_bytes=1024**3, output_bytes=1_000_000, max_file_bytes=100_000)
 LOCKFILE = json.dumps(
@@ -882,7 +882,7 @@ def test_disguised_source_files_are_analyzed(tmp_path: Path, require_semgrep, re
         repository,
         inventory,
         timeout_seconds=90,
-        memory_bytes=4096 * 1024 * 1024,
+        memory_bytes=DEFAULT_MEMORY_BYTES,
         output_bytes=5_000_000,
         max_file_bytes=1_000_000,
     )

@@ -12,6 +12,7 @@ import pytest
 
 from hacker_code_konvert.inventory import ScopeError, build_inventory, stage_neutral_files
 from hacker_code_konvert.semgrep_adapter import (
+    DEFAULT_MEMORY_BYTES,
     _error_excerpt,
     _safe_relative_path,
     coverage_problems,
@@ -119,7 +120,7 @@ def test_semgrep_runs_inside_networkless_sandbox(require_semgrep, require_sandbo
         fixture,
         inventory,
         timeout_seconds=60,
-        memory_bytes=4096 * 1024 * 1024,  # documented minimum; semgrep-core needs the virtual address space
+        memory_bytes=DEFAULT_MEMORY_BYTES,  # semgrep-core reserves far more address space than it uses
         output_bytes=5_000_000,
         max_file_bytes=1_000_000,
     )
@@ -293,7 +294,7 @@ def _run_isolated(repository: Path):
         repository,
         build_inventory(repository),
         timeout_seconds=90,
-        memory_bytes=4096 * 1024 * 1024,
+        memory_bytes=DEFAULT_MEMORY_BYTES,
         output_bytes=5_000_000,
         max_file_bytes=1_000_000,
     )

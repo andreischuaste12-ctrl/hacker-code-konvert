@@ -141,7 +141,7 @@ def test_cvss_edge_cases_are_bounded(score):
 
 @pytest.mark.integration
 def test_extended_taint_sources_and_nonsecurity_hashes(tmp_path: Path, require_semgrep, require_sandbox):
-    from hacker_code_konvert.semgrep_adapter import run_semgrep
+    from hacker_code_konvert.semgrep_adapter import DEFAULT_MEMORY_BYTES, run_semgrep
 
     (tmp_path / "app.py").write_text("""
 import os, subprocess, hashlib
@@ -157,7 +157,7 @@ hashlib.new('md5', input().encode())
         tmp_path,
         build_inventory(tmp_path),
         timeout_seconds=60,
-        memory_bytes=4 * 1024**3,
+        memory_bytes=DEFAULT_MEMORY_BYTES,
         output_bytes=1000000,
         max_file_bytes=100000,
     )

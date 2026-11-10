@@ -44,7 +44,7 @@ this adapter never enables that mode. An unsupported or absent database makes th
 
 The Go scanners default to a 16 GiB virtual-address-space ceiling to accommodate runtime/WASM reservation;
 GOMEMLIMIT=512MiB and GOMAXPROCS=1 reduce runtime memory and concurrency. Address space is not resident RAM.
-The Python/Semgrep default remains 4 GiB; override with `--memory-mb` when needed.
+The Semgrep default is 8 GiB of address space; override with `--memory-mb` when needed.
 
 ## Signed review and disclosure draft
 

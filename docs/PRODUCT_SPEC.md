@@ -32,7 +32,7 @@ The CLI requires `--authorized`. This records the operator's confirmation; it do
 - Linux for Semgrep execution
 - Bubblewrap with usable user and network namespaces
 - Semgrep 1.184.0 for the optional Python SAST profile
-- A 4 GiB default address-space limit for the isolated Semgrep process
+- An 8 GiB default address-space limit for the isolated Semgrep process
 
 Inventory and JSON validation remain available without Semgrep. The Semgrep run fails closed when Bubblewrap isolation is unavailable.
 
@@ -65,4 +65,4 @@ An exit code of `0` never means that the repository is secure.
 
 ## Supported Scanner Installations
 
-A scanner must be installed under `/usr`, in its own directory under `/opt`, in a Python installation prefix, or inside a Python virtual environment, so the sandbox can mount the runtime without exposing unrelated directories (for example `pip install --user` into a home directory is rejected). The sandbox needs about 4 GiB of address space for `semgrep-core`; lower `--memory-mb` values make Semgrep fail.
+A scanner must be installed under `/usr`, in its own directory under `/opt`, in a Python installation prefix, or inside a Python virtual environment, so the sandbox can mount the runtime without exposing unrelated directories (for example `pip install --user` into a home directory is rejected). `--memory-mb` limits address space (virtual memory), of which `semgrep-core` reserves far more than it uses; the amount depends on the host. The default is 8 GiB. A value that is too low makes Semgrep fail, on some hosts with a segmentation fault (`semgrep-core exited with -11`), and the run is reported as failed.
