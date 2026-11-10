@@ -10,9 +10,9 @@ The planned approach combines code analysis, security auditing, and automated to
 
 ## Project Status
 
-Version 0.2.0 provides a local end-to-end MVP for repository inventory, isolated Semgrep analysis of Python and PHP files, executable finding validation, and Markdown, JSON and SARIF reporting. Scanner findings remain candidates until independently reviewed.
+The project provides a local end-to-end MVP: repository inventory, isolated Semgrep analysis of Python and PHP files, offline dependency and secret scanning, executable finding validation, and Markdown, JSON and SARIF reporting. Scanner findings remain candidates until independently reviewed.
 
-The rule pack is intentionally small. A completed run means that the requested checks finished, not that the analyzed repository is secure.
+The rule pack is a small, reviewed set (19 Python and 14 PHP/WordPress rules). A completed run means that the requested checks finished on the selected files, not that the analyzed repository is secure.
 
 ## Planned Capabilities
 
@@ -36,9 +36,9 @@ Active security testing, automatic maintainer outreach, remote AI processing, Gi
 
 Scanner status:
 
-- **Semgrep 1.184.0:** implemented for Python through bundled local rules and networkless Bubblewrap isolation.
+- **Semgrep 1.184.0:** Python and PHP through bundled local rules and networkless Bubblewrap isolation.
 - **OSV-Scanner 2.7.1:** isolated lockfile analysis using an explicitly prepared offline database.
-- **Gitleaks 8.30.1:** isolated directory-only secret detection with vendor defaults plus a controlled custom rule, empty ignore file and redacted output.
+- **Gitleaks 8.30.1:** isolated directory-only secret detection with vendor defaults plus a controlled custom rule, empty ignore file, inline allow comments ignored, and redacted output.
 
 Scanner output will be treated as evidence for review, not as a confirmed vulnerability by itself.
 
@@ -82,11 +82,11 @@ hck scan /path/to/authorized/repository \
   --authorized
 ```
 
-`--authorized` records your confirmation that the repository is in scope; the CLI cannot verify it. A run is complete only when Semgrep demonstrably analyzed every selected file: any file the scanner skipped, any scanner error, and any sandbox or scanner failure produces an incomplete run (`complete: false`, exit status `3`) with the gaps listed in the report.
+`--authorized` records your confirmation that the repository is in scope; the CLI cannot verify it. A run is complete only when coverage was demonstrated: content the scanner could not be shown (a nested repository, an unreadable or oversized file, a missing Git LFS object), a file the scanner skipped, a scanner error, a sandbox failure, or a repository with no supported source file all produce an incomplete run (`complete: false`, exit status `3`) with the gaps listed in the report. Source files are selected by suffix, interpreter line or a leading PHP tag; see [Scanner isolation](docs/SCANNER_ISOLATION.md) for the exact rules.
 
 To list files without scanning for vulnerabilities, pass `--scanner inventory`. That mode is labelled in the report and in `run.json` (`vulnerability_scan_performed: false`) and says nothing about whether the code is safe.
 
-The output directory must be new, empty, or hold only a previous run's artifacts, and it must remain outside the analyzed repository. It receives `run.json`, `findings.json`, and `report.md`, with private permissions. See the [MVP specification](docs/PRODUCT_SPEC.md) for exit statuses and limitations. The CLI itself performs no AI processing; an AI agent that reads the analyzed code does (see [Privacy](docs/PRIVACY.md)).
+The output directory must be new, empty, or hold only a previous run's artifacts, and it must remain outside the analyzed repository. It receives `run.json`, `findings.json`, `report.md`, and `results.sarif`, with private permissions. See the [MVP specification](docs/PRODUCT_SPEC.md) for exit statuses and limitations. The CLI itself performs no AI processing; an AI agent that reads the analyzed code does (see [Privacy](docs/PRIVACY.md)).
 
 ### Using the skill
 
@@ -137,10 +137,10 @@ Licensed under the [Apache License 2.0](LICENSE).
 
 ## Version 0.2.0 additions
 
-The bundled original rules cover 12 Python classes and 3 WordPress/PHP review patterns. Rules, hashes,
+The bundled original rules cover 19 Python classes and 14 PHP/WordPress classes. Rules, hashes,
 selected-file hashes, scanner versions, Python version and actual isolation appear in `run.json`.
-Coverage completion describes the requested checks only. The small synthetic corpus is not a real-world
-accuracy estimate. See [the implementation status](docs/IMPROVEMENT_STATUS.md) for external prerequisites.
+Coverage completion describes the requested checks only. The synthetic corpora, including one written
+before the rules were extended, are not a real-world accuracy estimate (see [Quality](docs/QUALITY.md)). See [the implementation status](docs/IMPROVEMENT_STATUS.md) for external prerequisites.
 
 - [Operational commands](docs/OPERATIONS.md): offline scanners, authorization records, SSH review and disclosure drafts.
 - `results.sarif` is generated locally; upload to GitHub code scanning is a separate authorized action.

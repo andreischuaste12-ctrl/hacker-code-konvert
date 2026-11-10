@@ -36,3 +36,22 @@ This is an evidence-based status, not a numerical security rating. Version 0.2.0
 Outstanding infrastructure actions must be completed by an administrator with the relevant access and
 signing identity. Concurrent in-place writes and host-dependent delegated PID limits remain explicit technical
 limitations. See OPERATIONS.md before enabling release publication or applying repository rules.
+
+## Follow-up to the audit of `dccd0b2`
+
+| Finding | Status |
+| --- | --- |
+| Inline `gitleaks:allow` suppressed secrets | Fixed: `--ignore-gitleaks-allow`, regression test with the real scanner |
+| An empty `.git` file hid a directory with a complete run | Fixed: nested repositories make the run incomplete |
+| A PHP file starting with the Git LFS version line was skipped | Fixed: only a file matching the whole pointer grammar is a pointer |
+| Source files with other suffixes or no suffix were ignored silently | Fixed: selection by suffix, interpreter line or leading PHP tag; unsupported languages are named; nothing to analyze is incomplete |
+| Low recall of the bundled rules | Improved: 33 rules with per-rule fixtures and a line-level corpus written before the rules; one documented gap |
+| One oversized or unpinned dependency file failed the whole OSV run | Fixed: per-file gaps, 32 MiB default for dependency files, per-file isolation of parse failures |
+| Dependency findings lacked package, version and fix | Fixed |
+| Writable tmpfs mounts were limited only by host memory | Fixed: size caps, read-only root and `/dev` |
+| No process limit without a delegated cgroup | Fixed for non-root users on Linux 5.14+; recorded as a limitation elsewhere |
+| `false_positive` needed no reviewer or signature | Fixed in the validator, the JSON Schema and the CLI |
+| Gitleaks and OSV coverage was asserted | OSV coverage is measured per file; Gitleaks coverage is proven by a canary and otherwise reported as unknown |
+| Socket filter bypass through upper register bits | Fixed: only `AF_UNIX` is allowed |
+| Two inventory implementations | Fixed: one capture implementation, used by the CLI and the tests |
+| Unprotected `main`, no signed release | Open: requires the repository administrator and the maintainer's signing key (see OPERATIONS.md) |

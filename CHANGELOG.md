@@ -4,6 +4,42 @@ All notable project changes are documented here. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Security: follow-up to the audit of dccd0b2
+
+- Gitleaks no longer honors inline `gitleaks:allow` comments from the analyzed repository.
+- A directory containing `.git` makes the run incomplete instead of being skipped with a complete run.
+- A Git LFS pointer is recognized only by its complete grammar; a file that imitates one is analyzed.
+- Source files are selected by suffix (`.pyw`, `.phtml`, `.inc`, `.php5` and others), by interpreter
+  line, or by a leading PHP tag, and are staged under the canonical suffix of their language.
+- A Semgrep run with no supported source file is incomplete; unsupported languages are named.
+- The sandbox root and `/dev` are read-only, every writable tmpfs has a size cap, host account files
+  and `/opt` are no longer mounted, and a per-sandbox process limit applies for non-root users.
+- The seccomp filter allows only `AF_UNIX` sockets and can no longer be bypassed through upper
+  register bits; denied names unknown to the installed libseccomp are reported.
+- `false_positive` requires a recorded review and, in the CLI, a trusted signature. The findings
+  document is read once for validation, signature verification and the disclosure draft.
+
+### Changed
+
+- OSV-Scanner: per-file coverage. Oversized, unpinned or unparsable dependency files are coverage gaps
+  and no longer fail the whole run; dependency files default to a 32 MiB limit. Findings name the
+  package, locked version, advisory aliases and fixed versions.
+- Gitleaks: a tool-owned canary credential proves the rules ran; per-file coverage is reported as
+  unknown instead of being asserted.
+- Rule pack extended from 15 to 33 rules (19 Python, 14 PHP/WordPress) and renamed to
+  `semgrep-rules.yml`. `hck.php.wpdb-injection` is now `hck.php.sql-injection`.
+- One capture implementation replaces the separate inventory used by tests.
+- `scripts/evaluate_fixture_quality.py` supports line-level expectations and documented known gaps;
+  CI measures a third corpus written before the rules were extended.
+- Report coverage lines state what each scanner measured; `run.json` gains `scanner.files_submitted`
+  and `scanner.coverage`.
+
+### Compatibility
+
+- Exit status `3` is now returned for repositories with nested repositories or submodules and for
+  Semgrep runs without Python or PHP sources.
+- Finding identifiers of dependency findings include the package, so they differ from earlier runs.
+
 ### Security audit follow-up
 
 - Extend pinned Gitleaks vendor rules and retain neutral-file extensions; seven-format synthetic corpus.

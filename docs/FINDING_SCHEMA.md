@@ -50,7 +50,7 @@ Every scanner result starts as a candidate. This normalized contract connects sc
 
 `review.reviewer` and `review.reviewed_at` are recorded by whoever edits the JSON. The contract proves that the fields are present and consistent, not who filled them in. Treat a `validated` status as an auditable claim, not as cryptographic proof, until signed reviews are introduced.
 
-The bundled JSON Schemas encode the same review invariants as the executable validator for `validated` and `accepted_risk`. Path safety (relative, no traversal, no control or bidirectional characters) is enforced by the executable validator.
+The bundled JSON Schemas encode the same review invariants as the executable validator for `validated`, `false_positive` and `accepted_risk`. Path safety (relative, no traversal, no control or bidirectional characters) is enforced by the executable validator.
 
 ## Disclosure Lifecycle
 
@@ -162,6 +162,8 @@ External communication requires explicit human approval. The lifecycle must not 
 - A `validated` finding requires all applicable gates and independent human review.
 - Missing evidence keeps a result as `candidate`; it does not establish `false_positive`.
 - `accepted_risk` requires an authorized owner, rationale, and review date.
+- `false_positive` also requires a recorded human review, reviewer and date: dismissing a finding removes it from the queue, so it carries the same accountability as confirming it. `hck validate` requires a trusted signature for every status other than `candidate`.
+- Dependency findings carry `sources[0].package` (`name`, `version`, `ecosystem`), `aliases` and `fixed_versions`; the package is part of the fingerprint.
 - Severity and confidence must not be merged into one value.
 - A CVSS score must include version 4.0, its vector, metric justifications, assumptions, and a validated score source.
 - EPSS and KEV data must include the observation date and exact component match.

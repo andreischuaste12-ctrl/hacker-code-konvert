@@ -38,7 +38,7 @@ Do not send automated or bulk vulnerability reports. Consolidate related finding
 
 ## Project Scope
 
-Version 0.1.x is the currently supported development line. Its security-sensitive surface includes the
+The `main` branch (0.2.x) is the currently supported development line. Its security-sensitive surface includes the
 CLI, repository staging, Bubblewrap isolation, bundled rules, output normalization, redaction, schemas,
 and report generation. Include the affected version or commit in a private report.
 

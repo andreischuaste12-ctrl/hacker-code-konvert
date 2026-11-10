@@ -5,8 +5,8 @@
 The MVP is local-first:
 
 - repository inventory runs in the CLI process;
-- selected Python files are copied to a temporary, read-only staging directory;
-- Semgrep runs in a Bubblewrap sandbox with a separate network namespace;
+- selected files are captured once and copied to a temporary, read-only staging directory under neutral names;
+- every scanner runs in a Bubblewrap sandbox with a separate network namespace;
 - source files and raw scanner output are not retained;
 - normalized reports are written only to the operator-selected output directory;
 - AI processing, telemetry, and external uploads are disabled.

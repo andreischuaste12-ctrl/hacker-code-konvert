@@ -96,7 +96,9 @@ Filename-dependent vendor rules may still differ from scanning an original direc
 seven synthetic formats and cannot prove universal secret detection.
 
 OSV accepts `requirements*.txt` with fixed `==` versions, `go.mod`, `pom.xml`, `gradle.lockfile` and the
-supported lockfiles. Requirements includes, options and unresolved version ranges are rejected explicitly.
+supported lockfiles. A requirements file with includes, options or version ranges cannot be matched
+offline: it is reported as a coverage gap (`partial_coverage`, exit status `3`) and the other dependency
+files are still analyzed. Dependency files may be up to 32 MiB by default (`--max-file-bytes`).
 Archive SHA256 values, an aggregate identity, retrieval timestamps and database age are recorded. Missing
 provenance produces an explicit freshness limitation, a digest mismatch fails the scan, and the default
 staleness warning threshold is configurable with `--max-database-age-days` (30). These metadata records

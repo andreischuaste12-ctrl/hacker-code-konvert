@@ -36,7 +36,7 @@ Captures the repository root, exclusions, analysis mode, and authorization bound
 
 Detects languages, package managers, manifests, lockfiles, generated directories, test fixtures, and application entry points. It produces scanner inputs without modifying the target repository.
 
-The implemented inventory rejects escaping output paths, does not follow symlinks or nested repositories, identifies Git LFS pointers, applies file and repository limits, and selects Python files for controlled staging.
+The implemented inventory rejects escaping output paths, does not follow symlinks or nested repositories, identifies Git LFS pointers, applies file and repository limits, and selects Python and PHP source files (by suffix, interpreter line or leading PHP tag) for controlled staging. Content that is skipped but was needed by the scanner makes the run incomplete.
 
 ### Scanner adapters
 
