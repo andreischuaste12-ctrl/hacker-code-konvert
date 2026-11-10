@@ -719,7 +719,7 @@ for label, domain in domains.items():
     sockets[label] = libc.syscall(*arguments) >= 0
 result["sockets"] = sockets
 result["accounts_visible"] = os.path.exists("/etc/passwd") or os.path.exists("/etc/group")
-result["opt_visible"] = os.path.exists("/opt")
+result["opt_entries"] = sorted(os.listdir("/opt")) if os.path.isdir("/opt") else []
 try:
     with open("/tmp/fill", "wb") as stream:
         for _ in range(64):
@@ -773,7 +773,11 @@ def test_sandbox_bounds_writable_memory_and_allows_only_unix_sockets(
         "alg": False,
         "unix": True,
     }
-    assert not observed["accounts_visible"] and not observed["opt_visible"]
+    assert not observed["accounts_visible"]
+    # /opt is never mounted as a whole: at most the directory that holds the test interpreter.
+    runtime = sandbox.runtime_mounts(Path(sys.executable).resolve())
+    allowed = {mount.parts[2] for mount in runtime if mount.is_relative_to("/opt")}
+    assert set(observed["opt_entries"]) <= allowed
 
 
 FORK_PROBE = r"""
